@@ -1113,7 +1113,8 @@
     el.gridReadout.textContent = text;
   }
 
-  const READOUT_DEFAULT = 'Maintiens Alt pour placer librement';
+  const TOUCH_UI = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+  const READOUT_DEFAULT = TOUCH_UI ? 'Touche pour poser une note · glisse pour défiler' : 'Maintiens Alt pour placer librement';
 
   /* ----- grille : pas, aimant, repères ----- */
 
@@ -1163,6 +1164,20 @@
   /* ----- poser des notes (clic ou glisser sur des cellules vides) ----- */
 
   function beginPaint(event, track) {
+    if (event.pointerType === 'touch') {
+      // Au doigt : un TAP pose la note, mais un glissement fait défiler la grille (comportement natif du téléphone).
+      // On attend donc le relâchement pour savoir lequel des deux c'est.
+      gesture = {
+        kind: 'tap',
+        pointerId: event.pointerId,
+        trackId: track.id,
+        startX: event.clientX,
+        startY: event.clientY,
+        startAt: performance.now(),
+        down: { clientX: event.clientX, clientY: event.clientY, altKey: false, pointerId: event.pointerId },
+      };
+      return;
+    }
     gesture = { kind: 'paint', pointerId: event.pointerId, tried: new Set(), free: isFreeNow(event) };
     paintAt(track, event);
   }
@@ -1302,6 +1317,11 @@
       return;
     }
     if (!gesture || event.pointerId !== gesture.pointerId) return;
+    if (gesture.kind === 'tap') {
+      // Le doigt a bougé : ce n'est plus un tap, c'est un défilement.
+      if (Math.hypot(event.clientX - gesture.startX, event.clientY - gesture.startY) > 10) gesture = null;
+      return;
+    }
     lastPointer = { pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY, altKey: event.altKey };
     startAutoScroll();
     if (gesture.kind === 'paint') {
@@ -1329,6 +1349,16 @@
     }
     if (!gesture || event.pointerId !== gesture.pointerId) return;
     const finished = gesture;
+    if (finished.kind === 'tap') {
+      const track = store.getTrack(finished.trackId);
+      gesture = null;
+      if (!cancelled && track && performance.now() - finished.startAt < 700) {
+        gesture = { kind: 'paint', pointerId: finished.pointerId, tried: new Set(), free: false };
+        paintAt(track, finished.down);
+        gesture = null;
+      }
+      return;
+    }
     if (finished.kind !== 'paint') {
       const track = store.getTrack(finished.trackId);
       const note = store.getNote(finished.trackId, finished.noteId);
@@ -1580,6 +1610,19 @@
     });
 
     el.roll.addEventListener('pointerdown', pointerDownOnRoll);
+    // Petits écrans : les outils de grille et de zoom se replient pour laisser la place au piano-roll.
+    const toolsToggle = document.getElementById('tools-toggle');
+    const gridBarEl = document.getElementById('grid-bar');
+    if (gridBarEl && toolsToggle) {
+      const narrow = window.matchMedia('(max-width: 900px), (max-height: 500px)');
+      const setTools = (open) => {
+        gridBarEl.classList.toggle('tools-open', open);
+        toolsToggle.setAttribute('aria-expanded', String(open));
+      };
+      toolsToggle.addEventListener('click', () => setTools(!gridBarEl.classList.contains('tools-open')));
+      setTools(!narrow.matches);
+    }
+    if (el.gridReadout) el.gridReadout.textContent = READOUT_DEFAULT;
     el.roll.addEventListener('pointermove', onRollHover);
     el.roll.addEventListener('pointerleave', () => {
       if (hoverEl) hoverEl.hidden = true;

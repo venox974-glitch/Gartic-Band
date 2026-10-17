@@ -223,3 +223,11 @@ cd server && npm install && npm start      # http://localhost:8080
 - **Barre espace** : une pression = une action (touche maintenue ignorée, 120 ms mini entre deux bascules, désactivée dans les champs de texte). Cause du bug « plus d'espace après le tempo » : le curseur de tempo gardait le focus et l'ancien code ignorait tout `<input>`, même un curseur.
 - **Démarrage/pause rapides** : un jeton (`playToken`) annule un démarrage devenu obsolète, ce qui évite un moteur audio désynchronisé.
 - **Boucle** : la composition entière se répète sans fin tant qu'on n'a pas fait pause ou stop.
+
+## Téléphone et tablette (v11b)
+
+- **Un tap pose une note, un glissement fait défiler** la grille (défilement natif du téléphone, avec inertie). Les notes se déplacent et s'allongent toujours au doigt ; le clavier à gauche joue la note touchée.
+- **Boutons d'au moins 44 px** sur écran tactile, champs de texte à 16 px (évite le zoom automatique d'iOS).
+- **Outils de grille et de zoom repliés** sur petit écran : le bouton « ⚙️ Outils » les déplie. Le choix du mode (Baby / Débutant / Expert) reste visible.
+- **Mode paysage** : le piano-roll occupe toute la hauteur de l'écran.
+- Test automatique : `test_v25.py` (émulation tactile 390×844, 360×640 et 844×390). Le défilement tactile réel et le son sur iPhone/Android sont à vérifier sur un vrai appareil.

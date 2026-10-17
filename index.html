@@ -2,7 +2,10 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#2a1760">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
   <title>Gartic Bande — Build Up</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
@@ -308,6 +311,7 @@
 
         <!-- Barre d'outils du piano-roll : mode, grille, zoom, navigation -->
         <div id="grid-bar" class="grid-bar" role="group" aria-label="Outils du piano-roll">
+          <button type="button" id="tools-toggle" class="tools-toggle" aria-expanded="false" aria-controls="grid-bar">⚙️ Outils de grille et zoom</button>
           <div class="tool-group" role="group" aria-label="Mode de difficulté">
             <div class="mode-switch" id="mode-switch">
               <button type="button" class="mode-btn" data-mode="baby" aria-pressed="false" title="Baby : une gamme pentatonique, rythme simple"><span>👶</span> Baby</button>

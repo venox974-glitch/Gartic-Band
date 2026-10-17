@@ -1106,3 +1106,58 @@ body.mode-game .free-only { display: none !important; }
 @media (max-width: 700px) { .transport { flex-wrap: wrap; gap: 0.4rem; } .transport .status { display: none; } }
 @media (max-width: 1100px) { .workspace { flex: none; } }
 @media (max-height: 640px) and (min-width: 1101px) { .workspace { flex: none; } .sidebar { max-height: none; } }
+
+/* ===================================================================== */
+/*  v11 : confort sur téléphone et tablette (tactile)                     */
+/* ===================================================================== */
+html { -webkit-tap-highlight-color: transparent; -webkit-text-size-adjust: 100%; }
+button, .btn, .icon-btn, .pick-card, [role="button"], summary, label { touch-action: manipulation; }
+.tools-toggle { display: none; }
+
+/* La grille se laisse faire défiler au doigt (un simple tap pose la note, voir ui.js) */
+.roll-body, .roll-grid { touch-action: pan-x pan-y; }
+
+@media (pointer: coarse) {
+  /* Cibles tactiles d'au moins 44 px (recommandation d'accessibilité) */
+  .btn, .btn-play, .topbar .btn, .topbar .btn-play { min-height: 44px; }
+  .icon-btn, .topbar .icon-btn, .icon-btn.mini { min-width: 44px; min-height: 44px; width: 44px; height: 44px; font-size: 1.1rem; }
+  .track-main, .mode-btn, .scale-btn, .grid-unit, .grid-magnet, .tools-toggle { min-height: 44px; padding-top: 0.3rem; padding-bottom: 0.3rem; }
+  .grid-unit { min-width: 44px; }
+  .topbar .tempo input[type="range"], .tempo input[type="range"] { min-height: 44px; }
+  input[type="range"] { height: 44px; }
+  input[type="text"], input[type="search"], input[type="number"], select, textarea { font-size: 16px; min-height: 44px; } /* évite le zoom automatique d'iOS */
+  .roll-label.white, .roll-label.black { min-height: 0; }
+  .note-handle { width: min(32px, 60%); }
+  .playhead-knob { width: 30px; height: 30px; margin-left: -15px; }
+  kbd { display: none; }
+}
+
+@media (max-width: 900px), (max-height: 500px) {
+  .tools-toggle { display: inline-flex; align-items: center; justify-content: center; width: 100%; min-height: 44px; font: inherit; font-weight: 700; border: 3px solid var(--ink); border-radius: 12px; background: var(--paper-tint); color: var(--ink); cursor: pointer; }
+  .grid-bar:not(.tools-open) .tool-group:not(:first-of-type), .grid-bar:not(.tools-open) .grid-readout { display: none; }
+  .grid-bar.tools-open .tools-toggle { background: var(--yellow); }
+  .mode-switch { flex-wrap: nowrap; }
+}
+
+@media (max-width: 700px) {
+  .rb-theme { flex-basis: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .round-bar { grid-template-columns: minmax(0, 1fr) auto; }
+  .rb-time { grid-column: 2; }
+  .rb-state { grid-column: 1 / -1; grid-row: 2; }
+  .rb-progress { grid-row: 3; }
+  .mode-switch .mode-btn { padding-left: 0.5rem; padding-right: 0.5rem; font-size: 0.85rem; }
+  .topbar { padding-left: max(0.5rem, env(safe-area-inset-left)); padding-right: max(0.5rem, env(safe-area-inset-right)); }
+  body { padding-bottom: env(safe-area-inset-bottom); }
+}
+
+/* Téléphone en mode paysage : la grille prend toute la hauteur */
+@media (max-height: 500px) and (orientation: landscape) {
+  .screen.editor .roll { height: calc(100dvh - 4.2rem); min-height: 220px; }
+  .sidebar { max-height: none; }
+  .phase-banner, .mode-notice { display: none; }
+  .round-bar { padding: 0.15rem 0.6rem; }
+}
+@media (max-height: 500px) and (orientation: landscape) {
+  .grid-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.6rem; padding: 0.3rem 0.5rem; }
+  .tools-toggle { width: auto; padding: 0 0.9rem; }
+}
