@@ -1,0 +1,16 @@
+{
+  "name": "gartic-bande-server",
+  "version": "1.0.0",
+  "description": "Serveur de salons privés pour Gartic Bande (WebSocket) + fichiers du jeu",
+  "main": "server.js",
+  "private": true,
+  "license": "UNLICENSED",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test-server.js && node test-themes.js && node test-sounds.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}
