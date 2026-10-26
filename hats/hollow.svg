@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1080">
+<style>
+      .cls-1{fill:url(#linear-gradient-1);stroke:#20123f;stroke-width:36;stroke-linecap:round;stroke-linejoin:round}
+      .cls-2{fill:#e6e6e6;stroke:#20123f;stroke-width:36;stroke-linecap:round;stroke-linejoin:round}
+      .cls-3{fill:none;stroke:#20123f;stroke-width:36;stroke-linecap:round;stroke-linejoin:round}
+      .cls-4{fill:#20123f;stroke:#20123f;stroke-width:20;stroke-linecap:round;stroke-linejoin:round}
+      .cls-5{fill:#e1e1e1;stroke:#20123f;stroke-width:36;stroke-linejoin:round}
+      .cls-6{fill:#20123f;stroke:#20123f;stroke-width:36;stroke-linejoin:round}
+      .cls-7{fill:#ffffff;stroke:#000000;stroke-width:36;stroke-linejoin:round}
+    </style>
+
+    
+    <path d="M860.605 247.05 L905.659 59.21 L938.466 224.775 L1035.281 59.21 L995.498 320.679 L825.065 540 L711.119 440.148 Z" class="cls-5"/>
+    <path d="M42.023 66.738 L151.727 236.009 L174.341 66.738 L230.98 258.44 L368.881 446.401 L265.768 526.855 L76.853 295.265 Z" class="cls-5"/>
+    <path d="M190 609.651 C190 436.866 346.7 296.796 540 296.796 C733.3 296.796 890 436.866 890 609.651 C890 782.436 733.3 1039.645 540 1039.645 C346.7 1039.645 190 782.436 190 609.651 Z" class="cls-5"/>
+    <path d="M325.404 738.546 C325.404 720.062 370.49 447.487 431.111 447.487 C491.732 447.487 473.961 720.062 473.961 738.546 C473.961 757.03 495.788 772.014 435.167 772.014 C374.546 772.014 325.404 757.03 325.404 738.546 Z" class="cls-6"/>
+    <path d="M606.04 721.67 C606.04 703.186 591.814 448.774 652.434 448.774 C713.055 448.774 754.597 722.495 754.597 740.979 C754.597 759.463 705.454 774.447 644.834 774.447 C584.213 774.447 606.04 740.154 606.04 721.67 Z" class="cls-6"/>
+    
+    
+  
+</svg>

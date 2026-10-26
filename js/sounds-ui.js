@@ -102,12 +102,20 @@
     for (const file of picked) {
       const result = await sounds.add(file);
       if (!result.ok) errors.push(result.error);
-      else notes.push(result.duplicate ? '« ' + result.sound.name + ' » est déjà dans ta bibliothèque.' : '« ' + result.sound.name + ' » ajouté ✅');
+      else {
+        notes.push(result.duplicate ? '« ' + result.sound.name + ' » est déjà dans ta bibliothèque.' : '« ' + result.sound.name + ' » ajouté');
+        // Chaque son importé devient tout de suite un instrument des listes (préparation, sélecteur compact).
+        await sounds.update(result.sound.id, { instrument: true });
+        registerEntry(Object.assign({}, result.sound, { instrument: true }));
+      }
     }
     busy -= 1;
     if (errors.length) say(errors.join(' '), 'error');
     else say(notes.join(' '), 'ok');
     el.file.value = '';
+    ui.renderInstrumentPicker();
+    GB.instrumentUI.notifyChanged();
+    if (GB.pregameUI) GB.pregameUI.soundsChanged();
     render();
   }
 
@@ -128,25 +136,31 @@
     const meta = registerEntry(entry);
     sounds.markUsed(entry.hash);
     await sounds.update(entry.id, { instrument: true });
-    const inGame = ui.isGameMode();
-    const track = store.getSelectedTrack();
     let applied = false;
-    if (inGame) {
-      if (GB.game.state.phase === 'pick') applied = Boolean(GB.game.pickInstrument(meta.id));
-    } else if (track && !track.locked) {
-      store.setInstrument(track.id, meta.id);
-      applied = true;
+    if (GB.pregameUI && GB.pregameUI.chooseSound(meta.id)) {
+      applied = true; // page de préparation : c'est ton instrument pour la partie
+    } else if (ui.isGameMode()) {
+      const track = store.getSelectedTrack();
+      if (track && !track.locked && GB.game.state.phase === 'compose') {
+        ui.changeInstrument(meta.id); // en composition : le son remplace l'instrument de ta couche, tes notes restent
+        applied = store.getSelectedTrack().instrumentId === meta.id;
+      }
+    } else {
+      const track = store.getSelectedTrack();
+      if (track && !track.locked) {
+        store.setInstrument(track.id, meta.id);
+        applied = true;
+      }
     }
     audio.syncTracks();
     ui.renderAll();
     GB.instrumentUI.notifyChanged();
+    if (GB.pregameUI) GB.pregameUI.soundsChanged();
     if (applied) {
       closeDialog();
-      ui.showToast('« ' + entry.name + ' » est ton instrument 🎧 — pose des notes, la hauteur change la vitesse du son');
-      const now = store.getSelectedTrack();
-      if (now) audio.preview(now.id, GB.PREVIEW_ROW);
+      ui.showToast('« ' + entry.name + ' » est ton instrument : la hauteur des notes change sans changer la vitesse du son');
     } else {
-      say('« ' + entry.name + ' » est ajouté à la liste des instruments.', 'ok');
+      say('« ' + entry.name + ' » est dans la liste des instruments.', 'ok');
       render();
     }
   }
@@ -157,6 +171,7 @@
     const result = await sounds.remove(entry.id);
     if (!result.ok) return say(result.error);
     GB.instruments.hideSample(GB.instruments.sampleIdOf(entry.hash));
+    if (GB.pregameUI) GB.pregameUI.soundsChanged();
     say('« ' + entry.name + ' » supprimé.', 'ok');
     GB.instrumentUI.notifyChanged();
     ui.renderInstrumentPicker();
@@ -172,13 +187,14 @@
     const names = ['WAV'].concat(formats.mp3 ? ['MP3'] : [], formats.ogg ? ['OGG'] : []);
     const limits = sounds.limits();
     el.intro.textContent =
-      'Importe tes propres sons (' + names.join(', ') + ') et joue-les comme un instrument. Jusqu\'à ' + limits.MAX_COUNT + ' sons de ' +
+      'Importe tes propres sons (' + names.join(', ') + ') : glisse-les ici ou choisis un fichier. Ils deviennent des instruments, dont la hauteur change sans changer la vitesse. Jusqu\'à ' + limits.MAX_COUNT + ' sons de ' +
       limits.MAX_SECONDS + ' s au plus. ' +
       (sounds.isPersistent()
         ? 'Ils sont gardés dans ce navigateur, sur cet ordinateur seulement : un autre ordinateur ne les aura pas.'
-        : '⚠️ Ce navigateur ne permet pas de sauvegarder : tes sons disparaîtront à la fermeture de la page.');
+        : 'Attention : ce navigateur ne permet pas de sauvegarder : tes sons disparaîtront à la fermeture de la page.');
     el.btnImport.disabled = busy > 0;
-    el.btnImport.textContent = busy > 0 ? 'Import en cours…' : '📂 Importer un son';
+    if (busy > 0) el.btnImport.textContent = 'Import en cours…';
+    else GB.icons.set(el.btnImport, 'folder', 'Importer un son');
   }
 
   function renderLimit() {
@@ -232,6 +248,7 @@
           registerEntryIfListed(result.sound);
           GB.instrumentUI.notifyChanged();
           ui.renderInstrumentPicker();
+          if (GB.pregameUI) GB.pregameUI.soundsChanged();
         }
       };
       name.addEventListener('change', commit);
@@ -260,17 +277,17 @@
         if (result.ok) registerEntryIfListed(result.sound);
       });
 
-      const listen = create('button', 'btn btn-small', preview && preview.id === entry.id ? '⏹ Stop' : '▶ Écouter');
+      const listen = GB.icons.set(create('button', 'btn btn-small'), preview && preview.id === entry.id ? 'stop' : 'play', preview && preview.id === entry.id ? 'Stop' : 'Écouter');
       listen.type = 'button';
       listen.dataset.action = 'play';
       listen.addEventListener('click', () => play(entry));
 
-      const use = create('button', 'btn btn-primary btn-small', '🎹 Utiliser comme instrument');
+      const use = GB.icons.set(create('button', 'btn btn-primary btn-small'), 'piano', 'Choisir comme instrument');
       use.type = 'button';
       use.dataset.action = 'use';
       use.addEventListener('click', () => useAsInstrument(entry));
 
-      const remove = create('button', 'icon-btn danger', '🗑');
+      const remove = GB.icons.set(create('button', 'icon-btn danger'), 'trash');
       remove.type = 'button';
       remove.dataset.action = 'delete';
       remove.title = 'Supprimer ce son';

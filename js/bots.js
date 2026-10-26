@@ -21,19 +21,29 @@
   /*  Personnages                                                        */
   /* ------------------------------------------------------------------ */
 
-  GB.HUMAN_PLAYER = { id: 'human', name: 'Toi', avatar: '🧑‍🎤', color: '#FF5C8A', isHuman: true };
+  GB.HUMAN_PLAYER = {
+    id: 'human',
+    name: 'Toi',
+    avatar: '', // ancien émoji (gardé pour compatibilité) : l'affichage utilise skin
+    color: '#FF5C8A',
+    isHuman: true,
+    // le personnage choisi dans « Mon personnage » (lu au moment où la partie démarre)
+    get skin() {
+      return GB.avatar ? GB.avatar.get() : { color: 'red', hat: 'none' };
+    },
+  };
 
   /**
    * `taste` : goût de chaque personnage pour chaque rôle (plus c'est haut, plus il le choisit volontiers).
    */
   GB.BOT_PLAYERS = [
-    { id: 'max', name: 'Max', avatar: '🦊', color: '#FFB020', isHuman: false, taste: { drums: 3, bass: 2, lead: 0, pad: 0, arp: 1 } },
-    { id: 'zoe', name: 'Zoé', avatar: '🐙', color: '#2EC4B6', isHuman: false, taste: { drums: 0, bass: 1, lead: 1, pad: 3, arp: 2 } },
-    { id: 'nina', name: 'Nina', avatar: '🦄', color: '#7C5CFF', isHuman: false, taste: { drums: 0, bass: 0, lead: 2, pad: 1, arp: 3 } },
-    { id: 'tom', name: 'Tom', avatar: '🐻', color: '#4DA3FF', isHuman: false, taste: { drums: 2, bass: 3, lead: 0, pad: 1, arp: 0 } },
-    { id: 'leo', name: 'Léo', avatar: '🐸', color: '#7ED957', isHuman: false, taste: { drums: 1, bass: 0, lead: 3, pad: 1, arp: 2 } },
-    { id: 'ana', name: 'Ana', avatar: '🐧', color: '#FF7A45', isHuman: false, taste: { drums: 2, bass: 1, lead: 1, pad: 2, arp: 1 } },
-    { id: 'sam', name: 'Sam', avatar: '🦉', color: '#C45CFF', isHuman: false, taste: { drums: 0, bass: 2, lead: 2, pad: 2, arp: 3 } },
+    { id: 'max', name: 'Max', avatar: '', color: '#D4145A', isHuman: false, skin: { color: 'yellow', hat: 'cheese' }, taste: { drums: 3, bass: 2, lead: 0, pad: 0, arp: 1 } },
+    { id: 'zoe', name: 'Zoé', avatar: '', color: '#2EC4B6', isHuman: false, skin: { color: 'blue', hat: 'visor' }, taste: { drums: 0, bass: 1, lead: 1, pad: 3, arp: 2 } },
+    { id: 'nina', name: 'Nina', avatar: '', color: '#7C5CFF', isHuman: false, skin: { color: 'violet', hat: 'wizard' }, taste: { drums: 0, bass: 0, lead: 2, pad: 1, arp: 3 } },
+    { id: 'tom', name: 'Tom', avatar: '', color: '#4DA3FF', isHuman: false, skin: { color: 'green', hat: 'propeller' }, taste: { drums: 2, bass: 3, lead: 0, pad: 1, arp: 0 } },
+    { id: 'leo', name: 'Léo', avatar: '', color: '#7ED957', isHuman: false, skin: { color: 'pink', hat: 'none' }, taste: { drums: 1, bass: 0, lead: 3, pad: 1, arp: 2 } },
+    { id: 'ana', name: 'Ana', avatar: '', color: '#FFD23F', isHuman: false, skin: { color: 'white', hat: 'wizard' }, taste: { drums: 2, bass: 1, lead: 1, pad: 2, arp: 1 } },
+    { id: 'sam', name: 'Sam', avatar: '', color: '#C45CFF', isHuman: false, skin: { color: 'grey', hat: 'cheese' }, taste: { drums: 0, bass: 2, lead: 2, pad: 2, arp: 3 } },
   ];
 
   /** Rôle musical → instrument. */

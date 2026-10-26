@@ -57,9 +57,7 @@
    * Phases (pour le participant au premier plan) :
    *   idle      pas de partie en cours
    *   intro     annonce du round (le chrono n'a pas démarré)
-   *   listen    il écoute la chanson reçue
-   *   pick      il choisit son instrument
-   *   compose   il compose sa couche
+   *   compose   il compose sa couche (instrument et difficulté choisis à la préparation, modifiables en cours de route)
    *   ready     il a cliqué « Prêt » : contribution enregistrée et verrouillée, il attend les autres
    *   closing   (en ligne) le chrono est à zéro, les brouillons sont en cours d'envoi
    *   reveal    révélations des chansons
@@ -85,6 +83,8 @@
     rng: null,
     newTrackId: null,
     reveal: null,
+    prep: {}, // choix de préparation figés de chaque participant : { playerId: { bpm, instrumentId, mode, settings } }
+    prefs: {}, // instrument et difficulté COURANTS de chaque participant (départ = préparation ; modifiables pendant les rounds)
     theme: null, // thème officiel de la partie : { themeId, text, authorName, source } (affiché pendant les rounds et la révélation)
     online: null, // en ligne : { youId, hostId, code, submit }
   };
@@ -153,6 +153,12 @@
     return state.contributions.some((entry) => entry.songId === songId && entry.playerId === playerId);
   }
 
+  /** Difficulté courante d'un participant (choisie à la préparation, modifiable pendant les rounds). */
+  function modeOf(playerId) {
+    const pref = state.prefs[playerId];
+    return pref && pref.mode ? pref.mode : 'beginner';
+  }
+
   /** Ce participant est-il piloté depuis cet écran ? (moi en ligne ; le joueur, ou tous en mode test, en local.) */
   function isManual(player) {
     if (!player) return false;
@@ -184,7 +190,10 @@
 
   /** Charge une chanson dans l'éditeur : une piste verrouillée par contribution (les `count` premières). */
   function loadSong(song, count) {
-    store.startGame(store.state.bpm);
+    // Chaque chanson a SON tempo (celui choisi par son créateur à la préparation) : la boucle, l'écoute et la révélation le suivent.
+    const bpm = song.bpm ? Math.min(CONFIG.BPM_MAX, Math.max(CONFIG.BPM_MIN, Math.round(song.bpm))) : store.state.bpm;
+    store.startGame(bpm);
+    GB.audio.setBpm(bpm);
     const list = contributionsOf(song);
     list.slice(0, count === undefined ? list.length : count).forEach(layerFromContribution);
     state.loadedSongId = song.id;
@@ -199,7 +208,7 @@
   function contentOf(turn) {
     const track = turn.trackId ? store.getTrack(turn.trackId) : null;
     const source = track
-      ? { instrumentId: track.instrumentId, settings: track.settings, clip: track.clip, notes: track.notes }
+      ? { instrumentId: track.instrumentId, settings: track.settings, clip: track.clip, notes: track.notes, mode: modeOf(turn.playerId) }
       : turn.draft || null;
     if (!source) return null;
     const hasNotes = source.notes && source.notes.length > 0;
@@ -225,6 +234,7 @@
       order: song.contributionIds.length,
       kind: turn.kind === 'create' ? 'initial' : 'added',
       instrumentId,
+      mode: empty ? null : source.mode || (state.prefs[turn.playerId] && state.prefs[turn.playerId].mode) || null,
       instrument: empty ? null : Object.freeze(GB.instruments.snapshot(instrumentId, source.settings)),
       settings: !empty && source.settings ? Object.freeze(Object.assign({}, source.settings)) : null,
       clip: !empty && source.clip ? Object.freeze(Object.assign({}, source.clip, { peaks: Object.freeze(source.clip.peaks.slice()) })) : null,
@@ -284,8 +294,31 @@
     else if (state.roundStatus === 'closing') state.phase = 'closing';
     else if (!turn) state.phase = 'ready';
     else if (turn.status !== 'working') state.phase = 'ready';
-    else if (state.phase === 'compose' || state.phase === 'pick' || state.phase === 'listen') return;
-    else state.phase = songById(turn.songId).contributionIds.length > 0 ? 'listen' : 'pick';
+    else state.phase = 'compose'; // plus d'étape d'écoute ni de choix : l'instrument et la difficulté viennent de la préparation
+  }
+
+  /** Crée la couche du participant pour sa tâche : instrument de sa préparation (ou celui qu'il a choisi depuis). */
+  function startTrack(turn) {
+    const player = playerById(turn.playerId);
+    const pref = state.prefs[turn.playerId] || {};
+    let instrumentId = pref.instrumentId;
+    if (pref.settings && pref.settings.sample && GB.instruments.registerSample && !GB.INSTRUMENTS[instrumentId]) {
+      GB.instruments.registerSample({ hash: pref.settings.sample.hash, name: pref.settings.sample.name || 'Son importé', duration: pref.settings.sample.duration || 1, settings: {} });
+    }
+    if (GB.synth.isCustomId(instrumentId) && !GB.INSTRUMENTS[instrumentId]) GB.instruments.ensureCustom(instrumentId, pref.settings); // instrument personnalisé d'un autre joueur
+    if (!GB.INSTRUMENTS[instrumentId]) instrumentId = 'piano';
+    const track = store.addLayer({
+      name: player.name + ' · ' + GB.INSTRUMENTS[instrumentId].label,
+      instrumentId,
+      color: player.color,
+      author: player.id,
+      turn: turn.number,
+      locked: false,
+      settings: instrumentId === pref.instrumentId && pref.settings ? JSON.parse(JSON.stringify(pref.settings)) : undefined,
+    });
+    turn.instrumentId = instrumentId;
+    turn.trackId = track.id;
+    return track;
   }
 
   /** Met la tâche du participant au premier plan dans l'éditeur (chanson chargée, brouillon restauré s'il existe). */
@@ -316,7 +349,8 @@
         turn.instrumentId = track.instrumentId;
         state.phase = 'compose';
       } else if (turn.status === 'working') {
-        state.phase = song.contributionIds.length > 0 ? 'listen' : 'pick';
+        startTrack(turn);
+        state.phase = 'compose';
       }
     }
     computePhase();
@@ -443,7 +477,7 @@
     const content = contentOf(turn);
     GB.voice.cancel();
     const payload = content
-      ? { instrumentId: content.instrumentId, instrument: GB.instruments.snapshot(content.instrumentId, content.settings), settings: content.settings, clip: content.clip, notes: content.notes.map((note) => GB.noteData(note)) }
+      ? { instrumentId: content.instrumentId, instrument: GB.instruments.snapshot(content.instrumentId, content.settings), settings: content.settings, clip: content.clip, notes: content.notes.map((note) => GB.noteData(note)), mode: modeOf(turn.playerId) }
       : null;
     state.online.submit(state.round, payload, { auto: true });
     state.phase = 'closing';
@@ -772,7 +806,7 @@
         bpm: Math.min(CONFIG.BPM_MAX, Math.max(CONFIG.BPM_MIN, Math.round(Number(merged.bpm)) || DEFAULT_SETUP.bpm)),
         manual: Boolean(merged.manual),
         roundSeconds: Rounds.clampSeconds(merged.roundSeconds),
-        theme: merged.theme ? Object.assign({}, merged.theme) : GB.themes.settle(GB.themes.create()), // sans étape de thème : thème par défaut, indiqué comme tel
+        theme: merged.theme ? Object.assign({}, merged.theme) : GB.themes.defaultTheme(), // sans phase de thème : thème par défaut, indiqué comme tel
         playerName: String(merged.name || '').replace(/\s+/g, ' ').trim().slice(0, 16), // pseudo du joueur : figé au lancement
       };
       state.theme = state.config.theme;
@@ -793,12 +827,24 @@
       state.loadedSongId = null;
       contributionCounter = 0;
 
-      // Une chanson par participant, chacune avec son créateur et sa propre grille d'accords.
+      // Choix de préparation : ceux qui sont passés (setup.preps) ou, à défaut, les valeurs par défaut.
+      state.prep = {};
+      state.prefs = {};
+      state.players.forEach((player) => {
+        const given = merged.preps && merged.preps[player.id];
+        const prep = given ? Object.assign({}, given) : GB.phases.defaultPrep({ defaultBpm: state.config.bpm });
+        prep.bpm = GB.phases.clampBpm(prep.bpm, state.config.bpm);
+        state.prep[player.id] = prep;
+        state.prefs[player.id] = { instrumentId: prep.instrumentId, mode: prep.mode, settings: prep.settings ? JSON.parse(JSON.stringify(prep.settings)) : null };
+      });
+
+      // Une chanson par participant, chacune avec son créateur, son tempo et sa propre grille d'accords.
       state.songs = state.players.map((player, index) => ({
         id: 'song-' + (index + 1),
         index,
         letter: String.fromCharCode(65 + index),
         creatorId: player.id,
+        bpm: state.prep[player.id].bpm,
         progression: GB.pickProgression(state.rng),
         contributionIds: [],
       }));
@@ -835,34 +881,41 @@
       return true;
     },
 
-    /** Le joueur écoute la chanson reçue : place au choix de l'instrument. */
-    finishListening() {
-      if (state.phase !== 'listen') return false;
-      state.phase = 'pick';
+    /**
+     * Change l'instrument de ma couche en cours (compact, pendant le round). Les notes et l'enregistrement sont conservés ;
+     * le nouvel instrument est mémorisé comme mon instrument courant (la contribution l'enregistre).
+     */
+    changeInstrument(instrumentId, settings) {
+      const turn = currentTurn();
+      if (state.phase !== 'compose' || !turn || turn.status !== 'working' || !turn.trackId || !GB.INSTRUMENTS[instrumentId]) return false;
+      const track = store.getTrack(turn.trackId);
+      if (!track || track.locked) return false;
+      if (track.instrumentId !== instrumentId) {
+        if (!store.setInstrument(track.id, instrumentId)) return false;
+        if (settings) track.settings = JSON.parse(JSON.stringify(settings));
+      }
+      turn.instrumentId = instrumentId;
+      state.prefs[turn.playerId] = Object.assign({}, state.prefs[turn.playerId], { instrumentId, settings: track.settings ? JSON.parse(JSON.stringify(track.settings)) : null });
+      GB.audio.syncTracks();
       emit();
       return true;
     },
 
-    /** Le joueur choisit son instrument : une NOUVELLE piste est créée pour cette tâche. */
-    pickInstrument(instrumentId) {
+    /** Change la difficulté du participant au premier plan (affichage du piano-roll : aucune note n'est touchée). */
+    setMode(mode) {
       const turn = currentTurn();
-      if (state.phase !== 'pick' || !turn || turn.status !== 'working' || !GB.INSTRUMENTS[instrumentId]) return null;
-      if (hasContributed(turn.songId, turn.playerId)) return null; // jamais deux contributions
-      const player = playerById(turn.playerId);
-      const track = store.addLayer({
-        name: player.name + ' · ' + GB.INSTRUMENTS[instrumentId].label,
-        instrumentId,
-        color: player.color,
-        author: player.id,
-        turn: turn.number,
-        locked: false,
-      });
-      turn.instrumentId = instrumentId;
-      turn.trackId = track.id;
-      GB.audio.syncTracks();
-      state.phase = 'compose';
-      emit();
-      return track;
+      if (!turn || !GB.MODES[mode]) return false;
+      state.prefs[turn.playerId] = Object.assign({}, state.prefs[turn.playerId], { mode });
+      return true;
+    },
+
+    getMode(playerId) {
+      return modeOf(playerId || state.focusId);
+    },
+
+    /** Réglages choisis à la préparation par un participant. */
+    getPrep(playerId) {
+      return state.prep[playerId] || null;
     },
 
     /** « Prêt » possible : au moins une note ou un enregistrement, pas de micro en cours, tâche encore ouverte. */
@@ -894,6 +947,7 @@
           settings: track.settings,
           clip: track.clip,
           notes: track.notes.map((note) => GB.noteData(note)),
+          mode: modeOf(turn.playerId),
         }, {});
         if (!sent) return false;
         turn.status = 'ready'; // verrouillé tout de suite ; si le serveur refuse, sendFailed() rouvre
@@ -1030,7 +1084,7 @@
           roundSeconds: room.settings.roundSeconds,
         };
         state.rng = GB.createRng(1);
-        state.theme = room.theme || GB.themes.settle(GB.themes.create());
+        state.theme = room.theme || GB.themes.defaultTheme();
 
         GB.audio.stop();
         GB.setLoopBars(state.config.bars);
@@ -1044,11 +1098,20 @@
           name: entry.name,
           avatar: entry.avatar,
           color: entry.color,
+          skin: entry.skin,
           isHuman: entry.id === youId,
           connected: entry.connected,
           host: entry.host,
         }));
-        state.songs = room.songs.map((song, index) => ({ id: song.id, index, letter: song.letter, title: song.title, creatorId: song.creatorId, progression: null, contributionIds: [] }));
+        state.songs = room.songs.map((song, index) => ({ id: song.id, index, letter: song.letter, title: song.title, creatorId: song.creatorId, bpm: song.bpm || room.settings.bpm, progression: null, contributionIds: [] }));
+        state.prep = {};
+        state.prefs = {};
+        const prepMap = room.pre && room.pre.prep ? room.pre.prep : {};
+        state.players.forEach((player) => {
+          const prep = prepMap[player.id] || GB.phases.defaultPrep({ defaultBpm: room.settings.bpm });
+          state.prep[player.id] = prep;
+          state.prefs[player.id] = { instrumentId: prep.instrumentId, mode: prep.mode, settings: prep.settings ? JSON.parse(JSON.stringify(prep.settings)) : null };
+        });
         state.turns = [];
         room.plan.forEach((tasks, round) => {
           tasks.forEach((task) => {
@@ -1102,6 +1165,7 @@
           order: song.contributionIds.length,
           kind: data.kind,
           instrumentId: empty ? null : data.instrumentId,
+          mode: empty ? null : data.mode || null,
           instrument: empty ? null : Object.freeze(Object.assign({}, data.instrument || GB.instruments.snapshot(data.instrumentId, data.settings))),
           settings: !empty && data.settings ? Object.freeze(Object.assign({}, data.settings)) : null,
           clip: !empty && data.clip ? Object.freeze(Object.assign({}, data.clip, { peaks: Object.freeze((data.clip.peaks || []).slice()) })) : null,

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1080 1080">
+  <defs>
+    <style>
+      .cls-1{fill:url(#linear-gradient-1);stroke:#20123f;stroke-width:36;stroke-linecap:round;stroke-linejoin:round}
+      .cls-2{fill:#e6e6e6;stroke:#20123f;stroke-width:36;stroke-linecap:round;stroke-linejoin:round}
+      .cls-3{fill:none;stroke:#20123f;stroke-width:36;stroke-linecap:round;stroke-linejoin:round}
+      .cls-4{fill:#0071bc;stroke:#20123f;stroke-width:36;stroke-linejoin:round}
+      .cls-5{fill:#29abe2;stroke:#29abe2;stroke-width:36;stroke-linejoin:round}
+    </style>
+    <linearGradient id="linear-gradient-1" x1="560.149" y1="402.801" x2="560.149" y2="1068.079" gradientUnits="userSpaceOnUse">
+      <stop offset="0.0173" stop-color="#d4145a"/>
+      <stop offset="0.5864" stop-color="#c9145a"/>
+      <stop offset="1" stop-color="#97145a"/>
+    </linearGradient>
+  </defs>
+  <title>Piano Among Us</title>
+  <g id="Layer_1" data-name="Layer 1">
+    <g>
+      <path id="Face" d="M190 1080 L190 397.092 L890 397.092 L890 1080 Z" class="cls-1"/>
+      <path id="Mouth" d="M805.224 848.51 L274.776 843.726 L545.311 1001.285 Z" class="cls-2"/>
+      <path id="LineR" d="M664.444 402.801 L664.444 1080" class="cls-3"/>
+      <path id="LineL" d="M431.111 401.958 L431.111 1080" class="cls-3"/>
+    </g>
+    <g>
+      <g>
+        <path d="M190 558.331 C190 432.204 346.7 329.958 540 329.958 C733.3 329.958 890 432.204 890 558.331 C890 684.458 733.3 786.704 540 786.704 C346.7 786.704 190 684.458 190 558.331 Z" class="cls-4"/>
+        <path d="M316.948 527.756 C316.948 483.991 362.589 448.512 418.89 448.512 C475.191 448.512 520.832 483.991 520.832 527.756 C520.832 571.522 475.191 607.001 418.89 607.001 C362.589 607.001 316.948 571.522 316.948 527.756 Z" class="cls-5"/>
+      </g>
+    </g>
+  </g>
+</svg>

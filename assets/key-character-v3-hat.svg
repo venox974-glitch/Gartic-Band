@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1080 1080">
+  <defs>
+    <style>
+      .cls-1{fill:url(#linear-gradient-1);stroke:#20123f;stroke-width:36;stroke-linecap:round;stroke-linejoin:round}
+      .cls-2{fill:#e6e6e6;stroke:#20123f;stroke-width:36;stroke-linecap:round;stroke-linejoin:round}
+      .cls-3{fill:none;stroke:#20123f;stroke-width:36;stroke-linecap:round;stroke-linejoin:round}
+      .cls-4{fill:#20123f;stroke:#20123f;stroke-width:20;stroke-linecap:round;stroke-linejoin:round}
+      .cls-5{fill:#ed1c24;stroke:#20123f;stroke-width:36;stroke-miterlimit:10}
+      .cls-6{fill:#39b54a;stroke:#20123f;stroke-width:36;stroke-miterlimit:10}
+      .cls-7{fill:#fcee21;stroke:#20123f;stroke-width:36;stroke-miterlimit:10}
+      .cls-8{fill:#20123f}
+      .cls-9{fill:none;stroke:#20123f;stroke-width:36;stroke-miterlimit:10}
+    </style>
+    <linearGradient id="linear-gradient-1" x1="560.149" y1="272.215" x2="560.149" y2="937.493" gradientUnits="userSpaceOnUse">
+      <stop offset="0.0173" stop-color="#d4145a"/>
+      <stop offset="0.5864" stop-color="#c9145a"/>
+      <stop offset="1" stop-color="#97145a"/>
+    </linearGradient>
+  </defs>
+  <title>key-character-v2.svg</title>
+  <g id="Character">
+    <g>
+      <path id="Face" d="M190 949.414 L190 266.506 L890 266.506 L890 949.414 Z" class="cls-1"/>
+      <path id="Mouth" d="M805.224 717.924 L274.776 713.14 L545.311 870.699 Z" class="cls-2"/>
+      <path id="LineR" d="M664.444 272.215 L664.444 949.414" class="cls-3"/>
+      <path id="LineL" d="M431.111 271.372 L431.111 949.414" class="cls-3"/>
+      <path id="EyeL" d="M376.658 247.594 L485.564 247.594 L485.564 596.578 L376.658 596.578 Z" class="cls-4"/>
+      <path id="EyeR" d="M609.992 247.594 L718.897 247.594 L718.897 596.578 L609.992 596.578 Z" class="cls-4"/>
+    </g>
+    <g>
+      <path d="M487.128 80.363 C498.706 78.645 510.547 77.559 522.463 77.104 L447.381 191.937 C422.257 191.598 363.065 190.525 345.788 190.789 C350.294 127.913 413.397 91.305 487.128 80.363 Z" class="cls-5"/>
+      <path d="M623.943 194.398 L566.856 78.322 C575.288 79.113 583.642 80.222 591.849 81.65 C664.032 94.211 724.922 131.413 728.647 192.68 C690.66 196.12 663.357 195.056 623.943 194.398 Z" class="cls-6"/>
+      <path d="M522.463 77.104 C537.262 76.539 552.178 76.947 566.856 78.322 L588.855 107.44 C601.186 123.76 611.938 141.216 620.965 159.571 L637.7 193.599 C637.332 193.592 623.206 194.386 622.837 194.38 C564.894 193.431 528.065 192.036 457.296 192.036 C455.448 192.036 451.987 191.999 447.381 191.937 L462.603 156.696 C470.899 137.489 482.45 119.859 496.746 104.584 Z" class="cls-7"/>
+      <path d="M438.378 12.359 L546.168 22.241 L655.953 12.359 L655.953 48.359 L546.168 38.477 L438.378 48.359 Z" class="cls-8"/>
+      <path d="M545.465 87.249 L545.465 34.263" class="cls-9"/>
+    </g>
+  </g>
+</svg>

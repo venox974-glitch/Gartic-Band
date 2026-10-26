@@ -27,12 +27,12 @@
     MAX_TRACKS: 8,
     TRACK_COLORS: [
       '#FF5C8A', // rose
-      '#FFB020', // orange
+      '#D4145A', // rouge
       '#2EC4B6', // turquoise
       '#7C5CFF', // violet
       '#4DA3FF', // bleu
       '#7ED957', // vert
-      '#FF7A45', // corail
+      '#FFD23F', // jaune
       '#C45CFF', // lilas
     ],
   };
@@ -128,9 +128,9 @@
     minor: { id: 'minor', label: 'Mineure', long: 'Pentatonique mineure : Do Mi♭ Fa Sol Si♭', semitones: [0, 3, 5, 7, 10] },
   };
   GB.MODES = {
-    baby: { id: 'baby', icon: '👶', label: 'Baby', units: [1, 0.5], forceMagnet: true, maxDetail: 2, help: 'Seulement les notes de la gamme choisie, pas de rythme compliqué : impossible de sonner trop faux.' },
-    beginner: { id: 'beginner', icon: '🎹', label: 'Débutant', units: [1, 0.5, 0.25], forceMagnet: false, maxDetail: 4, help: 'Les 7 notes naturelles (Do Ré Mi Fa Sol La Si), toutes libres, sans dièses ni bémols.' },
-    expert: { id: 'expert', icon: '🎼', label: 'Expert', units: [1, 0.5, 0.25, 0.125, 1 / 3], forceMagnet: false, maxDetail: 8, help: 'Toutes les notes (touches blanches et noires) et des subdivisions très fines.' },
+    baby: { id: 'baby', icon: 'baby', label: 'Baby', units: [1, 0.5], forceMagnet: true, maxDetail: 2, help: 'Seulement les notes de la gamme choisie, pas de rythme compliqué : impossible de sonner trop faux.' },
+    beginner: { id: 'beginner', icon: 'piano', label: 'Débutant', units: [1, 0.5, 0.25], forceMagnet: false, maxDetail: 4, help: 'Les 7 notes naturelles (Do Ré Mi Fa Sol La Si), toutes libres, sans dièses ni bémols.' },
+    expert: { id: 'expert', icon: 'note', label: 'Expert', units: [1, 0.5, 0.25, 0.125, 1 / 3], forceMagnet: false, maxDetail: 8, help: 'Toutes les notes (touches blanches et noires) et des subdivisions très fines.' },
   };
   GB.MODE_ORDER = ['baby', 'beginner', 'expert'];
 
@@ -172,18 +172,18 @@
    * `volumeDb` : équilibrage du volume entre les instruments.
    */
   GB.INSTRUMENTS = {
-    piano: { id: 'piano', label: 'Piano', icon: '🎹', kind: 'melodic', octaveShift: 0, defaultLength: 1, resizable: true, volumeDb: -8 },
-    synth: { id: 'synth', label: 'Synthé doux', icon: '🌙', kind: 'melodic', octaveShift: 0, defaultLength: 2, resizable: true, volumeDb: -15 },
-    bass: { id: 'bass', label: 'Basse', icon: '🎸', kind: 'melodic', octaveShift: -1, defaultLength: 1, resizable: true, volumeDb: -7 },
-    lead: { id: 'lead', label: 'Lead 8-bit', icon: '👾', kind: 'melodic', octaveShift: 0, defaultLength: 1, resizable: true, volumeDb: -17 },
-    drums: { id: 'drums', label: 'Batterie', icon: '🥁', kind: 'drums', octaveShift: 0, defaultLength: 1, resizable: false, volumeDb: -5 },
+    piano: { id: 'piano', label: 'Piano', icon: 'ins-piano', kind: 'melodic', octaveShift: 0, defaultLength: 1, resizable: true, volumeDb: -8 },
+    synth: { id: 'synth', label: 'Synthé doux', icon: 'ins-synth', kind: 'melodic', octaveShift: 0, defaultLength: 2, resizable: true, volumeDb: -15 },
+    bass: { id: 'bass', label: 'Basse', icon: 'ins-bass', kind: 'melodic', octaveShift: -1, defaultLength: 1, resizable: true, volumeDb: -7 },
+    lead: { id: 'lead', label: 'Lead 8-bit', icon: 'ins-lead', kind: 'melodic', octaveShift: 0, defaultLength: 1, resizable: true, volumeDb: -17 },
+    drums: { id: 'drums', label: 'Batterie', icon: 'ins-drums', kind: 'drums', octaveShift: 0, defaultLength: 1, resizable: false, volumeDb: -5 },
     // Cuivre et bois : moteurs 'trumpet' et 'flute' (voir audio.js), avec réglages d'octave et de volume.
-    trumpet: { id: 'trumpet', label: 'Trompette', icon: '🎺', kind: 'melodic', engine: 'trumpet', octaveShift: 0, defaultLength: 1, resizable: true, volumeDb: -14 },
-    flute: { id: 'flute', label: 'Flûte', icon: '🪈', kind: 'melodic', engine: 'flute', octaveShift: 1, defaultLength: 1, resizable: true, volumeDb: -15 },
+    trumpet: { id: 'trumpet', label: 'Trompette', icon: 'ins-trumpet', kind: 'melodic', engine: 'trumpet', octaveShift: 0, defaultLength: 1, resizable: true, volumeDb: -14 },
+    flute: { id: 'flute', label: 'Flûte', icon: 'ins-flute', kind: 'melodic', engine: 'flute', octaveShift: 1, defaultLength: 1, resizable: true, volumeDb: -15 },
     // Voix synthétique : une source électronique passée dans des filtres de « voyelles » (moteur 'formant', voir audio.js).
-    vox: { id: 'vox', label: 'Voix robot', icon: '🤖', kind: 'melodic', engine: 'formant', octaveShift: 0, defaultLength: 1, resizable: true, volumeDb: -4 },
+    vox: { id: 'vox', label: 'Voix robot', icon: 'ins-vox', kind: 'melodic', engine: 'formant', octaveShift: 0, defaultLength: 1, resizable: true, volumeDb: -4 },
     // Voix enregistrée au micro : pas de notes, un extrait audio placé dans la boucle (moteur 'clip').
-    mic: { id: 'mic', label: 'Voix (micro)', icon: '🎤', kind: 'audio', engine: 'clip', octaveShift: 0, defaultLength: 1, resizable: false, volumeDb: -2 },
+    mic: { id: 'mic', label: 'Voix (micro)', icon: 'ins-mic', kind: 'audio', engine: 'clip', octaveShift: 0, defaultLength: 1, resizable: false, volumeDb: -2 },
   };
   /** Instruments de base, dans l'ordre d'origine (utilisé par les personnages). La liste complète : GB.instruments.pickable(). */
   GB.INSTRUMENT_ORDER = ['piano', 'synth', 'bass', 'lead', 'drums'];

@@ -15,7 +15,7 @@
 (function (GB) {
   'use strict';
 
-  const STORED_RATE = 24000; // fréquence d'enregistrement conservée (suffisant pour la voix, WAV 2× plus léger)
+  const STORED_RATE = 32000; // fréquence conservée : 32 kHz garde les aigus de la voix (24 kHz les rendait sourds), WAV de 64 Ko/s
   const PEAK_COUNT = 120;
   const MAX_SECONDS = 30;
 
@@ -151,7 +151,26 @@
     return { samples, sampleRate };
   }
 
-  /** Ramène un AudioBuffer (n canaux) à un tableau mono à STORED_RATE, par interpolation linéaire. */
+  /**
+   * Micro sans traitement automatique = voix souvent très faible : on remonte le volume jusqu'à ~ -2 dB (gain limité à +18 dB, jamais pour du pur
+   * bruit) et on adoucit les 8 premières/dernières millisecondes pour éviter les « clacs ».
+   */
+  function normalize(samples) {
+    let peak = 0;
+    for (let index = 0; index < samples.length; index += 1) peak = Math.max(peak, Math.abs(samples[index]));
+    if (peak >= 0.04 && peak < 0.8) {
+      const gain = Math.min(8, 0.8 / peak);
+      for (let index = 0; index < samples.length; index += 1) samples[index] *= gain;
+    }
+    const fade = Math.min(Math.floor(STORED_RATE * 0.008), Math.floor(samples.length / 2));
+    for (let index = 0; index < fade; index += 1) {
+      const factor = index / fade;
+      samples[index] *= factor;
+      samples[samples.length - 1 - index] *= factor;
+    }
+  }
+
+  /** Ramène un AudioBuffer (n canaux) à un tableau mono à STORED_RATE (moyenne sur la fenêtre, puis normalisation). */
   function toMonoStored(audioBuffer, trimSeconds) {
     const channels = audioBuffer.numberOfChannels;
     const sourceRate = audioBuffer.sampleRate;
@@ -165,13 +184,22 @@
     const outLength = Math.max(1, Math.floor((length * STORED_RATE) / sourceRate));
     const out = new Float32Array(outLength);
     const ratio = sourceRate / STORED_RATE;
+    // Moyenne pondérée de toute la fenêtre d'entrée de chaque échantillon de sortie : un filtre passe-bas simple qui évite le repliement
+    // (l'ancienne interpolation linéaire faisait « grésiller » la voix).
     for (let index = 0; index < outLength; index += 1) {
-      const position = index * ratio;
-      const low = Math.floor(position);
-      const high = Math.min(length - 1, low + 1);
-      const fraction = position - low;
-      out[index] = (mono[low] || 0) * (1 - fraction) + (mono[high] || 0) * fraction;
+      const from = index * ratio;
+      const to = Math.min(length, from + ratio);
+      let sum = 0;
+      let weight = 0;
+      for (let position = Math.floor(from); position < to; position += 1) {
+        const w = Math.min(position + 1, to) - Math.max(position, from);
+        if (w <= 0) continue;
+        sum += (mono[position] || 0) * w;
+        weight += w;
+      }
+      out[index] = weight > 0 ? sum / weight : 0;
     }
+    normalize(out);
     return out;
   }
 
@@ -317,7 +345,13 @@
         session.maxTimer = setTimeout(() => {
           if (typeof onAutoStop === 'function') onAutoStop();
         }, limit * 1000);
-        return { startedAt: session.startedAt, limit };
+        let deviceKey = 'default';
+        try {
+          deviceKey = stream.getAudioTracks()[0].getSettings().deviceId || 'default';
+        } catch (error) {
+          /* identifiant indisponible : micro « par défaut » */
+        }
+        return { startedAt: session.startedAt, limit, deviceKey };
       } catch (error) {
         resetSession();
         if (error && error.isVoiceError) throw error;

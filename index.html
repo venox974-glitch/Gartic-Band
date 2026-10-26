@@ -2,39 +2,60 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#2a1760">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
   <title>Gartic Bande — Build Up</title>
   <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/home-logos.css">
 </head>
 <body>
   <div class="bg-doodles" aria-hidden="true"></div>
 
   <!-- ===================== ÉCRAN D'ACCUEIL ===================== -->
   <section id="screen-home" class="screen home home-hero" data-screen="home">
+    <button id="btn-settings" class="settings-gear" type="button" aria-label="Paramètres" title="Paramètres"><i class="ic" data-i="gear"></i><span class="gear-dot" id="gear-dot" hidden aria-hidden="true"></span></button>
     <div class="home-wrap">
       <header class="hero">
-        <svg class="mascot" viewBox="0 0 220 200" role="img" aria-label="Bandi, la mascotte : une boule rose avec un casque audio">
-          <ellipse cx="110" cy="186" rx="62" ry="9" fill="#20123f" opacity=".28"/>
-          <path d="M44 112c0-44 29-76 66-76s66 32 66 76c0 30-26 62-66 62s-66-32-66-62z" fill="#ff4f9a" stroke="#20123f" stroke-width="7" stroke-linejoin="round"/>
-          <path d="M66 76c10-16 26-24 44-24" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round" opacity=".55"/>
-          <path d="M40 104c-2-52 30-86 70-86s72 34 70 86" fill="none" stroke="#20123f" stroke-width="15" stroke-linecap="round"/>
-          <path d="M40 104c-2-52 30-86 70-86s72 34 70 86" fill="none" stroke="#35b8ff" stroke-width="7" stroke-linecap="round"/>
-          <rect x="22" y="92" width="32" height="46" rx="14" fill="#ffd23f" stroke="#20123f" stroke-width="7"/>
-          <rect x="166" y="92" width="32" height="46" rx="14" fill="#ffd23f" stroke="#20123f" stroke-width="7"/>
-          <g class="mascot-eyes">
-            <ellipse cx="88" cy="116" rx="15" ry="19" fill="#fff" stroke="#20123f" stroke-width="5"/>
-            <ellipse cx="132" cy="116" rx="15" ry="19" fill="#fff" stroke="#20123f" stroke-width="5"/>
-            <circle class="pupil" cx="92" cy="121" r="7.5" fill="#20123f"/>
-            <circle class="pupil" cx="136" cy="121" r="7.5" fill="#20123f"/>
-          </g>
-          <path d="M86 146c6 20 42 20 48 0z" fill="#20123f" stroke="#20123f" stroke-width="5" stroke-linejoin="round"/>
-          <path d="M96 156c8 7 20 7 28 0" fill="none" stroke="#ff8aa8" stroke-width="6" stroke-linecap="round"/>
-          <g class="mascot-note">
-            <path d="M178 36v-26l26-6v26" fill="none" stroke="#20123f" stroke-width="7" stroke-linejoin="round" stroke-linecap="round"/>
-            <ellipse cx="170" cy="38" rx="11" ry="8" fill="#27e0a8" stroke="#20123f" stroke-width="5" transform="rotate(-18 170 38)"/>
-            <ellipse cx="196" cy="32" rx="11" ry="8" fill="#27e0a8" stroke="#20123f" stroke-width="5" transform="rotate(-18 196 32)"/>
-          </g>
-        </svg>
+        <div class="band" role="img" aria-label="Le groupe : cinq petits personnages en forme de touches de piano, de couleurs différentes">
+          <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+            <defs>
+              <linearGradient id="key-shade" x1="0" y1="266" x2="0" y2="949" gradientUnits="userSpaceOnUse">
+                <stop offset="0" stop-color="#000" stop-opacity="0"/>
+                <stop offset="1" stop-color="#000" stop-opacity=".25"/>
+              </linearGradient>
+              <symbol id="key-char" viewBox="150 -10 780 1030">
+                <path d="M190 949.414 L190 266.506 L890 266.506 L890 949.414 Z" transform="translate(0 40)" style="fill:var(--ink,#20123f);stroke:var(--ink,#20123f)" stroke-width="36" stroke-linejoin="round"/>
+                <g style="stroke:var(--ink,#20123f)" stroke-width="36" stroke-linejoin="round" stroke-linecap="round">
+                  <path d="M190 949.414 L190 266.506 L890 266.506 L890 949.414 Z" style="fill:var(--c,#d4145a);stroke:none"/>
+                  <path d="M190 949.414 L190 266.506 L890 266.506 L890 949.414 Z" fill="url(#key-shade)" stroke="none"/>
+                  <path d="M190 949.414 L190 266.506 L890 266.506 L890 949.414 Z" fill="none"/>
+                  <path d="M805.224 717.924 L274.776 713.14 L545.311 870.699 Z" fill="#e6e6e6"/>
+                  <path d="M664.444 272.215 L664.444 949.414" fill="none"/>
+                  <path d="M431.111 271.372 L431.111 949.414" fill="none"/>
+                  <path class="key-eye" d="M376.658 247.594 L485.564 247.594 L485.564 596.578 L376.658 596.578 Z" stroke-width="20" style="fill:var(--ink,#20123f)"/>
+                  <path class="key-eye" d="M609.992 247.594 L718.897 247.594 L718.897 596.578 L609.992 596.578 Z" stroke-width="20" style="fill:var(--ink,#20123f)"/>
+                </g>
+              </symbol>
+              
+              <symbol id="key-hat-propeller" viewBox="150 -10 780 1030">
+                <g style="stroke:var(--ink,#20123f)" stroke-width="36" stroke-miterlimit="10">
+                  <path d="M487.128 80.363 C498.706 78.645 510.547 77.559 522.463 77.104 L447.381 191.937 C422.257 191.598 363.065 190.525 345.788 190.789 C350.294 127.913 413.397 91.305 487.128 80.363 Z" fill="#ed1c24"/>
+                  <path d="M623.943 194.398 L566.856 78.322 C575.288 79.113 583.642 80.222 591.849 81.65 C664.032 94.211 724.922 131.413 728.647 192.68 C690.66 196.12 663.357 195.056 623.943 194.398 Z" fill="#39b54a"/>
+                  <path d="M522.463 77.104 C537.262 76.539 552.178 76.947 566.856 78.322 L588.855 107.44 C601.186 123.76 611.938 141.216 620.965 159.571 L637.7 193.599 C637.332 193.592 623.206 194.386 622.837 194.38 C564.894 193.431 528.065 192.036 457.296 192.036 C455.448 192.036 451.987 191.999 447.381 191.937 L462.603 156.696 C470.899 137.489 482.45 119.859 496.746 104.584 Z" fill="#fcee21"/>
+                  <path d="M438.378 12.359 L546.168 22.241 L655.953 12.359 L655.953 48.359 L546.168 38.477 L438.378 48.359 Z" style="fill:var(--ink,#20123f)" stroke="none"/>
+                  <path d="M545.465 87.249 L545.465 34.263" fill="none"/>
+                </g>
+              </symbol>
+            </defs>
+          </svg>
+          <svg class="key" style="--c:#ff4f9a;--d:0s;--r:-4deg"><use href="#key-char"/></svg>
+          <svg class="key" style="--c:#ffd23f;--d:-1.3s;--r:3deg"><use href="#key-char"/></svg>
+          <svg class="key key-lead" style="--c:#d4145a;--d:-2.4s;--r:0deg"><use href="#key-char"/><use href="#key-hat-propeller"/></svg>
+          <svg class="key" style="--c:#27e0a8;--d:-0.7s;--r:-3deg"><use href="#key-char"/></svg>
+          <svg class="key" style="--c:#35b8ff;--d:-3.1s;--r:4deg"><use href="#key-char"/></svg>
+        </div>
         <h1 class="logo" aria-label="Gartic Bande">
           <span class="logo-word">
             <span style="--i:0">G</span><span style="--i:1">A</span><span style="--i:2">R</span><span style="--i:3">T</span><span style="--i:4">I</span><span style="--i:5">C</span>
@@ -46,37 +67,117 @@
         <p class="tagline">Compose une base, passe-la à tes amis et regarde-la grandir couche après couche. Aucun solfège requis !</p>
       </header>
 
-      <div class="mode-cards">
-        <button id="btn-online" class="mode-card mode-card-online" type="button">
-          <span class="mode-card-icon" aria-hidden="true">🌐</span>
-          <span class="mode-card-title">Jouer en ligne</span>
-          <span class="mode-card-text">Crée un salon privé, invite tes amis avec un code, et composez tous en même temps, round après round.</span>
-          <span class="mode-card-tags"><b>2 à 8 joueurs</b><b>Code d'invitation</b></span>
-          <span class="mode-card-go">Créer ou rejoindre un salon</span>
-        </button>
+      <div class="home-main">
+        <!-- Cadre « Ton perso » : sans fond ni contour, le personnage (couleur + chapeau du joueur) est posé sur le violet. Immobile. -->
+        <div class="home-perso">
+          <div class="home-perso-title">TON PERSO</div>
+          <div class="home-perso-figure" id="home-perso-figure" role="img" aria-label="Ton personnage"></div>
+          <button id="btn-custom" class="home-perso-btn" type="button">Skin</button>
+        </div>
 
-        <button id="btn-create" class="mode-card mode-card-solo" type="button">
-          <span class="mode-card-icon" aria-hidden="true">🎹</span>
-          <span class="mode-card-title">Composition solo</span>
-          <span class="mode-card-text">Ton studio : piano-roll, instruments, voix, micro. Sans chrono, sans attendre personne.</span>
-          <span class="mode-card-tags"><b>Sans chrono</b><b>Hors ligne</b></span>
-          <span class="mode-card-go">Ouvrir le studio</span>
-        </button>
+        <div class="home-cards">
+          <button id="btn-online" class="hcard hcard-online po" type="button">
+            <svg class="og hlogo" focusable="false" viewBox="0 0 1080 1080" width="84" height="84" aria-hidden="true"><defs><linearGradient id="og-gb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5fcbff"/><stop offset=".6" stop-color="#35b8ff"/><stop offset="1" stop-color="#1f86d6"/></linearGradient><linearGradient id="og-gy" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe274"/><stop offset=".6" stop-color="#ffd23f"/><stop offset="1" stop-color="#e8a800"/></linearGradient><linearGradient id="og-gp" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff74b3"/><stop offset=".6" stop-color="#ff4f9a"/><stop offset="1" stop-color="#d4145a"/></linearGradient><clipPath id="og-c"><circle cx="540" cy="540" r="540"/></clipPath></defs><circle cx="540" cy="540" r="540" fill="#fff"/><g clip-path="url(#og-c)"><g class="a" style="--t1:translate(300px,395px) rotate(0deg) scale(0.58,0.58);--t2:translate(300px,395px) rotate(0deg) scale(0.58,0.58);--t3:translate(282px,408px) rotate(-9deg) scale(0.61,0.53);--t4:translate(318px,388px) rotate(5deg) scale(0.56,0.61);--t5:translate(326px,398px) rotate(8deg) scale(0.62,0.54);--L60:translate(321.2px,392px) rotate(6.2deg) scale(0.58,0.58);--L32:translate(323.44px,394.8px) rotate(7.04deg) scale(0.6,0.56);--L14:translate(324.88px,396.6px) rotate(7.58deg) scale(0.61,0.55);--O1:translate(294.6px,397.1px) rotate(-1.5deg) scale(0.59,0.57);--O2:translate(302.52px,394.02px) rotate(0.7deg) scale(0.58,0.58);--O3:translate(298.92px,395.42px) rotate(-0.3deg) scale(0.58,0.58);"><rect x="-194.5" y="-189" width="441" height="430" fill="#20123f" stroke="#20123f" stroke-width="30" stroke-linejoin="round"/><rect x="-220.5" y="-215" width="441" height="430" fill="url(#og-gb)" stroke="#20123f" stroke-width="30" stroke-linejoin="round"/><path d="M167 69.4L-167 66.4L3.4 165.6Z" fill="#e6e6e6" stroke="#20123f" stroke-width="30" stroke-linejoin="round"/><path d="M-68.5 -211V215M78.4 -211V215" fill="none" stroke="#20123f" stroke-width="30" stroke-linecap="round"/><g class="a" style="--t1:translate(0px,-117px) rotate(0deg) scale(1,1);--t2:translate(0px,-117px) rotate(0deg) scale(1,1);--t3:translate(0px,-117px) rotate(0deg) scale(1,1.15);--t4:translate(0px,-117px) rotate(0deg) scale(1,0.32);--t5:translate(0px,-117px) rotate(0deg) scale(1,0.14);--L60:translate(0px,-117px) rotate(0deg) scale(1,0.25);--L32:translate(0px,-117px) rotate(0deg) scale(1,0.2);--L14:translate(0px,-117px) rotate(0deg) scale(1,0.17);--O1:translate(0px,-117px) rotate(0deg) scale(1,1.2);--O2:translate(0px,-117px) rotate(0deg) scale(1,0.9);--O3:translate(0px,-117px) rotate(0deg) scale(1,1.04);"><rect x="-115.3" y="-122.4" width="93.6" height="244.8" rx="14" fill="#20123f"/><rect x="31.6" y="-122.4" width="93.6" height="244.8" rx="14" fill="#20123f"/></g></g><g class="a" style="--t1:translate(780px,395px) rotate(0deg) scale(0.58,0.58);--t2:translate(780px,395px) rotate(0deg) scale(0.58,0.58);--t3:translate(798px,408px) rotate(9deg) scale(0.61,0.53);--t4:translate(762px,388px) rotate(-5deg) scale(0.56,0.61);--t5:translate(754px,398px) rotate(-8deg) scale(0.62,0.54);--L60:translate(758.8px,392px) rotate(-6.2deg) scale(0.58,0.58);--L32:translate(756.56px,394.8px) rotate(-7.04deg) scale(0.6,0.56);--L14:translate(755.12px,396.6px) rotate(-7.58deg) scale(0.61,0.55);--O1:translate(785.4px,397.1px) rotate(1.5deg) scale(0.59,0.57);--O2:translate(777.48px,394.02px) rotate(-0.7deg) scale(0.58,0.58);--O3:translate(781.08px,395.42px) rotate(0.3deg) scale(0.58,0.58);"><rect x="-194.5" y="-189" width="441" height="430" fill="#20123f" stroke="#20123f" stroke-width="30" stroke-linejoin="round"/><rect x="-220.5" y="-215" width="441" height="430" fill="url(#og-gy)" stroke="#20123f" stroke-width="30" stroke-linejoin="round"/><path d="M167 69.4L-167 66.4L3.4 165.6Z" fill="#e6e6e6" stroke="#20123f" stroke-width="30" stroke-linejoin="round"/><path d="M-68.5 -211V215M78.4 -211V215" fill="none" stroke="#20123f" stroke-width="30" stroke-linecap="round"/><g class="a" style="--t1:translate(0px,-117px) rotate(0deg) scale(1,1);--t2:translate(0px,-117px) rotate(0deg) scale(1,1);--t3:translate(0px,-117px) rotate(0deg) scale(1,1.15);--t4:translate(0px,-117px) rotate(0deg) scale(1,0.32);--t5:translate(0px,-117px) rotate(0deg) scale(1,0.14);--L60:translate(0px,-117px) rotate(0deg) scale(1,0.25);--L32:translate(0px,-117px) rotate(0deg) scale(1,0.2);--L14:translate(0px,-117px) rotate(0deg) scale(1,0.17);--O1:translate(0px,-117px) rotate(0deg) scale(1,1.2);--O2:translate(0px,-117px) rotate(0deg) scale(1,0.9);--O3:translate(0px,-117px) rotate(0deg) scale(1,1.04);"><rect x="-115.3" y="-122.4" width="93.6" height="244.8" rx="14" fill="#20123f"/><rect x="31.6" y="-122.4" width="93.6" height="244.8" rx="14" fill="#20123f"/></g></g><g class="a" style="--t1:translate(540px,700px) rotate(0deg) scale(0.8,0.8);--t2:translate(540px,700px) rotate(0deg) scale(0.8,0.8);--t3:translate(540px,712px) rotate(0deg) scale(0.86,0.72);--t4:translate(540px,676px) rotate(0deg) scale(0.76,0.85);--t5:translate(540px,704px) rotate(0deg) scale(0.85,0.74);--L60:translate(540px,687.2px) rotate(0deg) scale(0.8,0.81);--L32:translate(540px,695.04px) rotate(0deg) scale(0.82,0.78);--L14:translate(540px,700.08px) rotate(0deg) scale(0.84,0.76);--O1:translate(540px,707.2px) rotate(0deg) scale(0.81,0.79);--O2:translate(540px,696.64px) rotate(0deg) scale(0.79,0.81);--O3:translate(540px,701.44px) rotate(0deg) scale(0.8,0.8);"><rect x="-220.5" y="-215" width="441" height="430" fill="#fff" stroke="#fff" stroke-width="56" stroke-linejoin="round"/><g class="a" style="--t1:translate(0px,-117px) rotate(0deg) scale(1,1);--t2:translate(0px,-117px) rotate(0deg) scale(1,1);--t3:translate(0px,-117px) rotate(0deg) scale(1,1.15);--t4:translate(0px,-117px) rotate(0deg) scale(1,0.32);--t5:translate(0px,-117px) rotate(0deg) scale(1,0.14);--L60:translate(0px,-117px) rotate(0deg) scale(1,0.25);--L32:translate(0px,-117px) rotate(0deg) scale(1,0.2);--L14:translate(0px,-117px) rotate(0deg) scale(1,0.17);--O1:translate(0px,-117px) rotate(0deg) scale(1,1.2);--O2:translate(0px,-117px) rotate(0deg) scale(1,0.9);--O3:translate(0px,-117px) rotate(0deg) scale(1,1.04);"><rect x="-143.3" y="-150.4" width="149.6" height="300.8" rx="14" fill="#fff"/><rect x="3.6" y="-150.4" width="149.6" height="300.8" rx="14" fill="#fff"/></g><rect x="-194.5" y="-189" width="441" height="430" fill="#20123f" stroke="#20123f" stroke-width="30" stroke-linejoin="round"/><rect x="-220.5" y="-215" width="441" height="430" fill="url(#og-gp)" stroke="#20123f" stroke-width="30" stroke-linejoin="round"/><path d="M167 69.4L-167 66.4L3.4 165.6Z" fill="#e6e6e6" stroke="#20123f" stroke-width="30" stroke-linejoin="round"/><path d="M-68.5 -211V215M78.4 -211V215" fill="none" stroke="#20123f" stroke-width="30" stroke-linecap="round"/><g class="a" style="--t1:translate(0px,-117px) rotate(0deg) scale(1,1);--t2:translate(0px,-117px) rotate(0deg) scale(1,1);--t3:translate(0px,-117px) rotate(0deg) scale(1,1.15);--t4:translate(0px,-117px) rotate(0deg) scale(1,0.32);--t5:translate(0px,-117px) rotate(0deg) scale(1,0.14);--L60:translate(0px,-117px) rotate(0deg) scale(1,0.25);--L32:translate(0px,-117px) rotate(0deg) scale(1,0.2);--L14:translate(0px,-117px) rotate(0deg) scale(1,0.17);--O1:translate(0px,-117px) rotate(0deg) scale(1,1.2);--O2:translate(0px,-117px) rotate(0deg) scale(1,0.9);--O3:translate(0px,-117px) rotate(0deg) scale(1,1.04);"><rect x="-115.3" y="-122.4" width="93.6" height="244.8" rx="14" fill="#20123f"/><rect x="31.6" y="-122.4" width="93.6" height="244.8" rx="14" fill="#20123f"/></g></g><g class="fx"><path d="M115.48 47.84L161.68 66.97M47.84 115.48L66.97 161.68M-47.84 115.48L-66.97 161.68M-115.48 47.84L-161.68 66.97M-115.48 -47.84L-161.68 -66.97M-47.84 -115.48L-66.97 -161.68M47.84 -115.48L66.97 -161.68M115.48 -47.84L161.68 -66.97" fill="none" stroke="#20123f" stroke-width="16" stroke-linecap="round"/><polygon points="0,-100 17.6,-42.5 70.71,-70.71 42.5,-17.6 100,0 42.5,17.6 70.71,70.71 17.6,42.5 0,100 -17.6,42.5 -70.71,70.71 -42.5,17.6 -100,0 -42.5,-17.6 -70.71,-70.71 -17.6,-42.5" fill="#ffd23f" stroke="#20123f" stroke-width="16" stroke-linejoin="round"/></g><ellipse class="a" rx="59.5" ry="56.6" fill="#35b8ff" stroke="#20123f" stroke-width="25" style="--t1:translate(160px,575px) rotate(0deg) scale(0,0);--t2:translate(160px,575px) rotate(0deg) scale(1,1);--t3:translate(118px,590px) rotate(-20deg) scale(0.95,1.12);--t4:translate(505px,436px) rotate(-14deg) scale(1,1);--t5:translate(508px,446px) rotate(-14deg) scale(1.15,0.85);--L60:translate(506.2px,440px) rotate(-14deg) scale(1.06,0.94);--L32:translate(507.04px,442.8px) rotate(-14deg) scale(1.1,0.9);--L14:translate(507.58px,444.6px) rotate(-14deg) scale(1.13,0.87);--O1:translate(56.5px,616.7px) rotate(4.2deg) scale(1,1);--O2:translate(208.3px,555.54px) rotate(-1.96deg) scale(1,1);--O3:translate(139.3px,583.34px) rotate(0.84deg) scale(1,1);"/><ellipse class="a" rx="59.5" ry="56.6" fill="#ffd23f" stroke="#20123f" stroke-width="25" style="--t1:translate(920px,575px) rotate(0deg) scale(0,0);--t2:translate(920px,575px) rotate(0deg) scale(1,1);--t3:translate(962px,590px) rotate(20deg) scale(0.95,1.12);--t4:translate(575px,436px) rotate(14deg) scale(1,1);--t5:translate(572px,446px) rotate(14deg) scale(1.15,0.85);--L60:translate(573.8px,440px) rotate(14deg) scale(1.06,0.94);--L32:translate(572.96px,442.8px) rotate(14deg) scale(1.1,0.9);--L14:translate(572.42px,444.6px) rotate(14deg) scale(1.13,0.87);--O1:translate(1023.5px,616.7px) rotate(-4.2deg) scale(1,1);--O2:translate(871.7px,555.54px) rotate(1.96deg) scale(1,1);--O3:translate(940.7px,583.34px) rotate(-0.84deg) scale(1,1);"/><ellipse class="a" rx="59.5" ry="56.6" fill="#ff4f9a" stroke="#20123f" stroke-width="25" style="--t1:translate(772px,835px) rotate(0deg) scale(0,0);--t2:translate(772px,835px) rotate(0deg) scale(1,1);--t3:translate(810px,870px) rotate(20deg) scale(0.95,1.12);--t4:translate(540px,392px) rotate(0deg) scale(1,1);--t5:translate(540px,402px) rotate(0deg) scale(1.15,0.85);--L60:translate(540px,396px) rotate(0deg) scale(1.06,0.94);--L32:translate(540px,398.8px) rotate(0deg) scale(1.1,0.9);--L14:translate(540px,400.6px) rotate(0deg) scale(1.13,0.87);--O1:translate(841.6px,967.9px) rotate(0deg) scale(1,1);--O2:translate(739.52px,772.98px) rotate(0deg) scale(1,1);--O3:translate(785.92px,861.58px) rotate(0deg) scale(1,1);"/><rect class="cf" x="-22" y="-22" width="44" height="44" rx="6" fill="#ff4f9a" stroke="#20123f" stroke-width="9" style="--dx:-170px;--dy:-120px"/><rect class="cf" x="-22" y="-22" width="44" height="44" rx="6" fill="#27e0a8" stroke="#20123f" stroke-width="9" style="--dx:170px;--dy:-120px"/><rect class="cf" x="-22" y="-22" width="44" height="44" rx="6" fill="#35b8ff" stroke="#20123f" stroke-width="9" style="--dx:-60px;--dy:-190px"/><rect class="cf" x="-22" y="-22" width="44" height="44" rx="6" fill="#ffd23f" stroke="#20123f" stroke-width="9" style="--dx:70px;--dy:-200px"/></g><circle cx="540" cy="540" r="515" fill="none" stroke="#20123f" stroke-width="50"/></svg>
+            <span class="hcard-text">
+              <span class="hcard-title hcard-title-big">Jouer en ligne</span>
+              <span class="hcard-sub">Crée un salon et invite tes amis avec un code.</span>
+              <span class="hcard-tag">2 à 8 joueurs</span>
+            </span>
+            <svg class="hcard-chev" viewBox="0 0 24 24" fill="none" stroke="#20123f" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9 5l7 7-7 7"/></svg>
+          </button>
 
-        <button id="btn-solo" class="mode-card mode-card-test" type="button">
-          <span class="mode-card-icon" aria-hidden="true">🧪</span>
-          <span class="mode-card-title">Tester une partie</span>
-          <span class="mode-card-text">Essaie les rounds sur cet ordinateur, avec des personnages ou en jouant tous les rôles.</span>
-          <span class="mode-card-go">Lancer un test</span>
-        </button>
+          <button id="btn-create" class="hcard hcard-editor ed" type="button">
+            <svg class="cg hlogo" viewBox="0 0 1080 1080" width="64" height="64" aria-hidden="true" focusable="false"><defs><clipPath id="cgc"><circle cx="540" cy="540" r="540"/></clipPath></defs>
+<circle cx="540" cy="540" r="540" fill="#ffffff"></circle>
+<g clip-path="url(#cgc)">
+<path d="M0 360H1080M0 720H1080M360 0V1080M720 0V1080" fill="none" stroke="#20123f" stroke-width="36"></path>
+<g transform="translate(200 540)"><g class="p p1"><rect x="-110" y="-85" width="220" height="170" style="fill:var(--n1)" stroke="#20123f" stroke-width="36" stroke-linejoin="round"></rect></g></g>
+<g transform="translate(540 200)"><g class="p p2"><rect x="-110" y="-85" width="220" height="170" style="fill:var(--n2)" stroke="#20123f" stroke-width="36" stroke-linejoin="round"></rect></g></g>
+<g transform="translate(880 540)"><g class="p p3"><rect x="-110" y="-85" width="220" height="170" style="fill:var(--n3)" stroke="#20123f" stroke-width="36" stroke-linejoin="round"></rect></g></g>
+<g class="cur"><path class="cp" d="M0 0 L172 132 L70 132 L0 207 Z"></path></g>
+</g>
+<circle cx="540" cy="540" r="515" fill="none" stroke="#20123f" stroke-width="50"></circle>
+</svg>
+            <span class="hcard-text">
+              <span class="hcard-title">Éditeur solo</span>
+              <span class="hcard-sub">Ton studio : piano-roll, instruments, voix.</span>
+            </span>
+            <span class="hcard-tag hcard-tag-side">Hors ligne</span>
+            <svg class="hcard-chev" viewBox="0 0 24 24" fill="none" stroke="#20123f" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9 5l7 7-7 7"/></svg>
+          </button>
+
+          <button id="btn-inventory" class="hcard hcard-inv inv" type="button">
+            <svg class="ig hlogo" focusable="false" viewBox="0 0 1080 1080" width="102" height="102" aria-hidden="true"><defs><linearGradient id="ig-f" x1="0" y1="0" x2="0" y2="1"><stop class="gs0" offset=".0173" stop-color="#d4145a"/><stop class="gs1" offset=".5864" stop-color="#c9145a"/><stop class="gs2" offset="1" stop-color="#97145a"/></linearGradient><clipPath id="ig-c"><circle cx="540" cy="540" r="540"/></clipPath></defs><circle cx="540" cy="540" r="540" fill="#fff"/><g clip-path="url(#ig-c)"><g transform="translate(530 640) scale(0.96)"><g class="cb"><rect x="-194.5" y="-189" width="441" height="430" fill="#20123f" stroke="#20123f" stroke-width="30" stroke-linejoin="round"/><rect x="-220.5" y="-215" width="441" height="430" fill="url(#ig-f)" stroke="#20123f" stroke-width="30" stroke-linejoin="round"/><path d="M167 69.4L-167 66.4L3.4 165.6Z" fill="#e6e6e6" stroke="#20123f" stroke-width="30" stroke-linejoin="round"/><path d="M-68.5 -211V215M78.4 -211V215" fill="none" stroke="#20123f" stroke-width="30" stroke-linecap="round"/><g class="ey"><rect x="-115.3" y="-122.4" width="93.6" height="244.8" rx="14" fill="#20123f"/><rect x="31.6" y="-122.4" width="93.6" height="244.8" rx="14" fill="#20123f"/></g><g class="hw hw0"><g transform="translate(0 -535.67) scale(0.63) translate(-540 0)"><path d="M548.402 35.159 L704.381 113.317 L580.216 133.857 L678.193 388.006 L431.111 388.006 Z" fill="#662d91" stroke="#20123f" stroke-width="36" stroke-linejoin="round"/><path d="M274.776 355.163 C274.776 312.558 411.088 345.233 557.567 345.233 C704.046 345.233 805.224 312.558 805.224 355.163 C805.224 397.767 704.046 465.912 557.567 465.912 C411.088 465.912 274.776 397.767 274.776 355.163 Z" fill="#662d91" stroke="#20123f" stroke-width="36" stroke-linejoin="round"/><path d="M754.235 50.718 C757.321 52.581 746.694 76.204 745.418 79.704 C740.128 94.217 721.561 165.594 733.979 170.067 C717.304 139.992 706.149 88.672 692.027 65.656 C715.663 74.169 747.962 98.792 781.304 110.8 C780.575 109.252 764.451 113.33 762.963 113.678 C742.909 118.371 723.689 126.729 704.968 135.19 L684.448 144.511 C680.656 146.243 669.449 147.75 673.099 149.763 C680.419 153.8 694.167 137.908 698.248 133.125 C702.652 127.963 754.215 50.847 754.235 50.718 Z" fill="none" stroke="#e8f400" stroke-width="36" stroke-linejoin="round"/><path d="M673.591 381.289 C674.713 381.396 674.08 385.31 674.076 385.874 C674.057 388.215 676.19 399.345 680.38 399.345 C672.164 395.913 663.311 389.17 656.617 386.613 C664.593 386.613 676.889 388.465 688.139 388.465 C687.755 388.282 683.378 389.691 682.971 389.817 C677.486 391.516 672.644 393.695 667.963 395.862 L662.837 398.245 C661.89 398.686 658.705 399.477 660.012 399.576 C662.632 399.776 665.029 396.804 665.733 395.913 C666.494 394.951 673.599 381.309 673.591 381.289 Z" fill="none" stroke="#e8f400" stroke-width="15" stroke-linejoin="round"/><path d="M521.632 286.734 C522.401 286.832 521.968 290.411 521.964 290.927 C521.952 293.067 523.413 303.244 526.283 303.244 C520.655 300.106 514.591 293.94 510.005 291.602 C515.469 291.602 523.892 293.296 531.598 293.296 C531.335 293.128 528.337 294.417 528.058 294.532 C524.301 296.085 520.984 298.077 517.777 300.059 L514.266 302.238 C513.618 302.641 511.436 303.364 512.331 303.455 C514.126 303.638 515.768 300.921 516.25 300.106 C516.771 299.226 521.638 286.752 521.632 286.734 Z" fill="none" stroke="#e8f400" stroke-width="7" stroke-linejoin="round"/><path d="M397.697 369.063 C398.48 368.581 402.029 373.328 402.593 373.966 C404.932 376.612 417.393 387.999 419.917 385.749 C411.523 386.297 399.419 383.458 392.82 384.175 C397.624 379.892 406.889 375.373 413.665 369.33 C413.25 369.33 412.028 373.268 411.91 373.628 C410.312 378.487 409.584 383.541 408.941 388.496 L408.246 393.932 C408.12 394.938 406.995 397.539 407.882 396.949 C409.661 395.767 408.12 391.133 407.649 389.751 C407.141 388.259 397.721 369.081 397.697 369.063 Z" fill="none" stroke="#e8f400" stroke-width="15" stroke-linejoin="round"/><path d="M539.413 217.196 C539.101 216.186 546.07 212.833 547.174 212.28 C551.155 210.286 573.015 195.697 570.906 191.913 C568.061 203.612 560.104 214.952 557.888 226.229 C552.932 217.335 551.418 206.23 546.191 196.85 C545.977 197.529 549.907 199.208 550.407 199.455 C555.506 201.974 560.503 203.708 565.961 205.267 C569.475 206.27 573.017 207.194 576.547 208.141 C577.203 208.317 581.125 210.08 581.247 209.646 C582.035 206.856 572.576 208.121 571.388 208.324 C568.683 208.788 539.829 216.848 539.413 217.196 Z" fill="none" stroke="#e8f400" stroke-width="12" stroke-linejoin="round"/><path d="M557.733 396.622 C558.418 397.236 554.873 401.986 554.421 402.708 C552.548 405.702 545.166 420.882 548.039 422.663 C545.132 414.77 544.419 402.358 541.859 396.234 C547.329 399.625 554.291 407.226 562.009 412.009 C561.891 411.611 557.768 411.557 557.39 411.546 C552.277 411.392 547.224 412.129 542.29 412.918 L536.881 413.795 C535.88 413.959 533.067 413.619 533.884 414.302 C535.523 415.672 539.529 412.88 540.72 412.036 C542.007 411.125 557.723 396.65 557.733 396.622 Z" fill="none" stroke="#e8f400" stroke-width="15" stroke-linejoin="round"/></g></g><g class="hw hw1"><g transform="translate(0 -627.02) scale(0.63) translate(-540 0)"><path d="M354.65 350.305 L839.296 610.858 L295.986 610.858 Z" fill="#fffd16" stroke="#20123f" stroke-width="36" stroke-linejoin="round"/><path d="M378.708 457.947 C378.708 453.909 382.997 450.636 388.288 450.636 C393.579 450.636 397.868 453.909 397.868 457.947 C397.868 461.986 393.579 465.259 388.288 465.259 C382.997 465.259 378.708 461.986 378.708 457.947 Z" fill="#fffd16" stroke="#d1bd00" stroke-width="36" stroke-linejoin="round"/><path d="M580.518 563.144 C580.518 559.958 591.285 557.378 604.566 557.378 C617.847 557.378 628.613 559.958 628.613 563.144 C628.613 566.327 617.847 568.909 604.566 568.909 C591.285 568.909 580.518 566.327 580.518 563.144 Z" fill="#b9bc00" stroke="#d1bd00" stroke-width="36" stroke-linejoin="round"/></g></g><g class="hw hw2"><g transform="translate(0 -382.58) scale(0.63) translate(-540 0)"><g transform="translate(0 -131)" stroke-linejoin="round" stroke-width="36"><path d="M190 558.331 C190 432.204 346.7 329.958 540 329.958 C733.3 329.958 890 432.204 890 558.331 C890 684.458 733.3 786.704 540 786.704 C346.7 786.704 190 684.458 190 558.331 Z" fill="#0071bc" stroke="#20123f"/><path d="M316.948 527.756 C316.948 483.991 362.589 448.512 418.89 448.512 C475.191 448.512 520.832 483.991 520.832 527.756 C520.832 571.522 475.191 607.001 418.89 607.001 C362.589 607.001 316.948 571.522 316.948 527.756 Z" fill="#29abe2" stroke="#29abe2"/></g></g></g><g class="hw rest hw3"><g transform="translate(0 -363.3) scale(0.63) translate(-540 0)"><g stroke="#20123f" stroke-width="36" stroke-miterlimit="10"><path d="M487.128 80.363 C498.706 78.645 510.547 77.559 522.463 77.104 L447.381 191.937 C422.257 191.598 363.065 190.525 345.788 190.789 C350.294 127.913 413.397 91.305 487.128 80.363 Z" fill="#ed1c24"/><path d="M623.943 194.398 L566.856 78.322 C575.288 79.113 583.642 80.222 591.849 81.65 C664.032 94.211 724.922 131.413 728.647 192.68 C690.66 196.12 663.357 195.056 623.943 194.398 Z" fill="#39b54a"/><path d="M522.463 77.104 C537.262 76.539 552.178 76.947 566.856 78.322 L588.855 107.44 C601.186 123.76 611.938 141.216 620.965 159.571 L637.7 193.599 C637.332 193.592 623.206 194.386 622.837 194.38 C564.894 193.431 528.065 192.036 457.296 192.036 C455.448 192.036 451.987 191.999 447.381 191.937 L462.603 156.696 C470.899 137.489 482.45 119.859 496.746 104.584 Z" fill="#fcee21"/><path d="M438.378 12.359 L546.168 22.241 L655.953 12.359 L655.953 48.359 L546.168 38.477 L438.378 48.359 Z" fill="#20123f" stroke="none"/><path d="M545.465 87.249 L545.465 34.263" fill="none"/></g></g></g></g></g><path class="spk spk0" d="M0 -1L.26 -.26L1 0L.26 .26L0 1L-.26 .26L-1 0L-.26 -.26Z" fill="#ffd23f" stroke="#20123f" stroke-width="0.2" stroke-linejoin="round" transform="translate(300 390) scale(0)"/><path class="spk spk1" d="M0 -1L.26 -.26L1 0L.26 .26L0 1L-.26 .26L-1 0L-.26 -.26Z" fill="#ffd23f" stroke="#20123f" stroke-width="0.2" stroke-linejoin="round" transform="translate(760 390) scale(0)"/><path class="spk spk2" d="M0 -1L.26 -.26L1 0L.26 .26L0 1L-.26 .26L-1 0L-.26 -.26Z" fill="#ffd23f" stroke="#20123f" stroke-width="0.2" stroke-linejoin="round" transform="translate(650 290) scale(0)"/><g transform="translate(780 770) rotate(8)"><circle cx="11" cy="11" r="115" fill="#20123f"/><circle r="115" fill="#f4f0ff" stroke="#20123f" stroke-width="16"/></g><g class="in in0"><g transform="scale(1.1)"><g transform="translate(3 -10)"><path d="M-40 10V38H14V10" fill="none" stroke="#20123f" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/><path d="M-40 10V38H14V10" fill="none" stroke="#ffd23f" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/><path d="M-74 10H40" fill="none" stroke="#20123f" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/><path d="M-74 10H40" fill="none" stroke="#ffd23f" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/><path d="M36 -10L74 -38V58L36 30Z" fill="#ffd23f" stroke="#20123f" stroke-width="12" stroke-linejoin="round"/><path d="M-26 10V-18M-6 10V-18M14 10V-18" stroke="#20123f" stroke-width="8" fill="none" stroke-linecap="round"/><circle cx="-26" cy="-20" r="7" fill="#ff4f9a" stroke="#20123f" stroke-width="6"/><circle cx="-6" cy="-20" r="7" fill="#ff4f9a" stroke="#20123f" stroke-width="6"/><circle cx="14" cy="-20" r="7" fill="#ff4f9a" stroke="#20123f" stroke-width="6"/></g></g></g><g class="in in1"><g transform="scale(1.1)"><g transform="translate(0 -4)"><path d="M-52 -14V34C-52 46 -30 54 0 54S52 46 52 34V-14Z" fill="#35b8ff" stroke="#20123f" stroke-width="12" stroke-linejoin="round"/><ellipse cx="0" cy="-14" rx="52" ry="18" fill="#fff" stroke="#20123f" stroke-width="12"/><path d="M-34 10L-17 42L0 10L17 42L34 10" fill="none" stroke="#20123f" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path d="M-58 -66L-8 -30M58 -66L8 -30" fill="none" stroke="#20123f" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/><path d="M-58 -66L-8 -30M58 -66L8 -30" fill="none" stroke="#ffd23f" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></g></g></g><g class="in in2"><g transform="scale(1.1)"><path d="M-62 48L62 -48" fill="none" stroke="#20123f" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/><path d="M-62 48L62 -48" fill="none" stroke="#27e0a8" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/><circle cx="-31.0" cy="24.0" r="6" fill="#20123f"/><circle cx="-6.2" cy="4.8" r="6" fill="#20123f"/><circle cx="18.6" cy="-14.4" r="6" fill="#20123f"/><circle cx="43.4" cy="-33.6" r="6" fill="#20123f"/><circle cx="-58" cy="44" r="9" fill="#ff4f9a" stroke="#20123f" stroke-width="6"/></g></g><g class="in in3"><g transform="scale(1.1)"><rect x="-66" y="-52" width="132" height="104" rx="8" fill="#fff" stroke="#20123f" stroke-width="12" stroke-linejoin="round"/><rect x="-66" y="-52" width="132" height="22" rx="8" fill="#ff4f9a" stroke="#20123f" stroke-width="12" stroke-linejoin="round"/><path d="M-33 -30V52M0 -30V52M33 -30V52" stroke="#20123f" stroke-width="8" fill="none"/><rect x="-43" y="-30" width="20" height="46" fill="#20123f"/><rect x="-10" y="-30" width="20" height="46" fill="#20123f"/><rect x="23" y="-30" width="20" height="46" fill="#20123f"/></g></g></g><circle cx="540" cy="540" r="515" fill="none" stroke="#20123f" stroke-width="50"/></svg>
+            <span class="hcard-text">
+              <span class="hcard-title">Casier</span>
+              <span class="hcard-sub">Tes sons à équiper, tes sons importés, tes chapeaux.</span>
+            </span>
+            <svg class="hcard-chev" viewBox="0 0 24 24" fill="none" stroke="#20123f" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9 5l7 7-7 7"/></svg>
+          </button>
+        </div>
       </div>
 
-      <button id="btn-resume-online" class="btn btn-ghost btn-big resume-btn" type="button" hidden>↩ Reprendre le salon</button>
+      <button id="btn-solo" class="home-link" type="button">Tester une partie sur cet ordinateur ›</button>
+
+      <button id="btn-resume-online" class="btn btn-ghost btn-big resume-btn" type="button" hidden><i class="ic" data-i="back"></i> Reprendre le salon</button>
 
       <footer class="home-foot">
-        <button id="btn-demo" class="btn btn-ghost btn-small" type="button">🎵 Écouter une démo dans le studio</button>
-        <p class="home-note">Pense à monter le son 🔊. Le studio tourne dans ton navigateur ; le jeu en ligne passe par un serveur.</p>
+        <button id="btn-demo" class="btn btn-ghost btn-small" type="button"><i class="ic" data-i="note"></i> Écouter une démo dans le studio</button>
+        <p class="home-note">Pense à monter le son. Le studio tourne dans ton navigateur ; le jeu en ligne passe par un serveur.</p>
       </footer>
+    </div>
+  </section>
+
+  <!-- ================= SKIN : à quoi ressemble mon personnage (couleur + chapeau) ================= -->
+  <section id="screen-custom" class="screen home" data-screen="custom" hidden>
+    <div class="home-card custom-card">
+      <div class="mode-pill">Skin</div>
+      <h2 class="setup-title">À quoi ressemble ton personnage ?</h2>
+      <div class="avatar-stage" id="avatar-preview" role="img" aria-label="Aperçu de ton personnage"></div>
+      <p class="setup-summary" id="avatar-summary" aria-live="polite"></p>
+      <h3 class="lobby-h">Couleur</h3>
+      <div id="avatar-colors" class="swatches" role="radiogroup" aria-label="Couleur du personnage"></div>
+      <h3 class="lobby-h">Chapeau</h3>
+      <div id="avatar-hats" class="hat-choices" role="radiogroup" aria-label="Chapeau du personnage"></div>
+      <p class="home-note custom-note">Le Skin, c'est seulement l'apparence. Pour choisir les sons que tu joues, va dans le <button type="button" class="link-btn" id="btn-skin-to-locker">Casier</button>.</p>
+      <p class="home-note custom-note">Ton choix est enregistré automatiquement dans ce navigateur.</p>
+      <div class="setup-actions"><button id="btn-custom-back" class="btn btn-primary btn-big" type="button"><i class="ic" data-i="check"></i> Terminé</button></div>
+    </div>
+  </section>
+
+  <!-- ================= CASIER : mes sons, mes objets, ce que j'équipe pour jouer ================= -->
+  <section id="screen-locker" class="screen home" data-screen="locker" hidden>
+    <div class="home-card custom-card locker-card">
+      <div class="mode-pill">Casier</div>
+      <h2 class="setup-title">Tes sons et tes objets</h2>
+      <p class="locker-legend"><span class="lk-badge on">Équipé</span> proposé dans l'éditeur et dans tes parties · <span class="lk-badge">Dans le casier</span> tu le possèdes, mais il n'est pas proposé</p>
+      <p class="setup-summary" id="locker-summary" aria-live="polite"></p>
+
+      <section class="locker-sec" aria-labelledby="lk-h-mine">
+        <h3 class="lobby-h" id="lk-h-mine">A · Mes sons personnalisés</h3>
+        <h4 class="locker-sub">Sons importés</h4>
+        <ul class="locker-list" id="locker-imported"></ul>
+        <h4 class="locker-sub">Instruments que j'ai créés</h4>
+        <ul class="locker-list" id="locker-created"></ul>
+        <div class="inv-actions">
+          <button id="btn-inv-sounds" class="btn btn-secondary btn-small" type="button"><i class="ic" data-i="headphones"></i> Importer / écouter / renommer mes sons</button>
+          <button id="btn-inv-synth" class="btn btn-secondary btn-small" type="button"><i class="ic" data-i="knob"></i> Créer ou modifier mes instruments</button>
+        </div>
+      </section>
+
+      <section class="locker-sec" aria-labelledby="lk-h-game">
+        <h3 class="lobby-h" id="lk-h-game">B · Sons disponibles dans le jeu</h3>
+        <div id="locker-packs"></div>
+        <p class="home-note custom-note">Des packs de sons à débloquer s'ajouteront ici plus tard.</p>
+      </section>
+
+      <section class="locker-sec" aria-labelledby="lk-h-hats">
+        <h3 class="lobby-h" id="lk-h-hats">C · Chapeaux que tu possèdes</h3>
+        <ul class="locker-hats" id="locker-hats"></ul>
+        <p class="home-note custom-note">Pour porter un chapeau, choisis-le dans <button type="button" class="link-btn" id="btn-locker-to-skin">Skin</button>.</p>
+      </section>
+
+      <div class="setup-actions"><button id="btn-locker-back" class="btn btn-primary btn-big" type="button"><i class="ic" data-i="check"></i> Terminé</button></div>
     </div>
   </section>
 
@@ -113,57 +214,60 @@
         </div>
       </div>
 
-      <div id="lobby-room" hidden>
-        <div class="lobby-code-box">
-          <span class="setup-label">Code à partager</span>
-          <strong id="lobby-room-code" class="lobby-code">-----</strong>
-          <button id="btn-lobby-copy" class="btn btn-ghost btn-small" type="button">📋 Copier</button>
-        </div>
-        <div class="roster" id="lobby-players" aria-label="Les participants"></div>
-        <div id="lobby-themes" class="themes-panel"></div>
-        <div id="lobby-settings" class="setup-grid">
-          <div class="setup-field">
-            <span class="setup-label">Joueurs maximum</span>
-            <div class="segmented" id="lobby-max" role="group" aria-label="Nombre maximum de joueurs"></div>
-          </div>
-          <div class="setup-field">
-            <span class="setup-label">Mesures de la boucle</span>
-            <div class="segmented" id="lobby-bars" role="group" aria-label="Nombre de mesures"></div>
-          </div>
-          <div class="setup-field">
-            <span class="setup-label">Durée d'un round</span>
-            <div class="segmented" id="lobby-seconds" role="group" aria-label="Durée d'un round"></div>
-          </div>
-          <div class="setup-field">
-            <span class="setup-label">Tempo</span>
-            <div class="setup-tempo">
-              <input id="lobby-bpm" type="range" aria-label="Tempo en BPM">
-              <span><strong id="lobby-bpm-value">110</strong> BPM</span>
+      <div id="lobby-room" class="lobby-room" hidden>
+        <div class="lobby-grid">
+          <!-- Zone permanente des modes de jeu : seul BUILD UP existe pour l'instant, les autres sont annoncés -->
+          <aside class="lobby-modes" id="lobby-modes" aria-label="Modes de jeu">
+            <h3 class="lobby-h">Modes de jeu</h3>
+            <ul class="mode-list" id="lobby-mode-list"></ul>
+          </aside>
+
+          <div class="lobby-main">
+            <div class="lobby-top">
+              <div class="lobby-code-box">
+                <span class="setup-label">Code à partager</span>
+                <strong id="lobby-room-code" class="lobby-code">-----</strong>
+                <button id="btn-lobby-copy" class="btn btn-ghost btn-small" type="button"><i class="ic" data-i="copy"></i> Copier</button>
+              </div>
+              <div class="lobby-host-state" id="lobby-state" aria-live="polite"></div>
+            </div>
+
+            <h3 class="lobby-h">Joueurs <span id="lobby-count" class="lobby-count"></span></h3>
+            <div class="roster lobby-roster" id="lobby-players" aria-label="Les participants"></div>
+
+            <h3 class="lobby-h">Réglages <small id="lobby-settings-note"></small></h3>
+            <div id="lobby-settings" class="settings-chips" role="group" aria-label="Réglages de la partie"></div>
+            <div id="lobby-panel" class="settings-panel" hidden></div>
+
+            <p class="setup-summary" id="lobby-summary"></p>
+            <p id="lobby-room-msg" class="form-error" role="alert"></p>
+            <div class="home-actions">
+              <button id="btn-lobby-start" class="btn btn-primary btn-big" type="button">Lancer la partie</button>
+              <button id="btn-lobby-leave" class="btn btn-ghost btn-big" type="button">Quitter le salon</button>
             </div>
           </div>
-        </div>
-        <p class="setup-summary" id="lobby-summary"></p>
-        <p id="lobby-room-msg" class="form-error" role="alert"></p>
-        <div class="home-actions">
-          <button id="btn-lobby-start" class="btn btn-primary btn-big" type="button">Lancer la partie</button>
-          <button id="btn-lobby-leave" class="btn btn-ghost btn-big" type="button">Quitter le salon</button>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- ================= THÈMES (mode test local) : propositions, vote, résultat ================= -->
-  <section id="screen-themes" class="screen home" data-screen="themes" hidden>
-    <div class="home-card setup-card">
-      <div class="mode-pill">Tester une partie</div>
-      <p class="tagline tagline-small">
-        Étape thèmes : propose des thèmes, lance le vote, choisis le thème gagnant. Tu peux incarner chaque participant
-        (clique sur son nom) pour tester les droits de l'hôte et des autres joueurs.
-      </p>
-      <div id="local-themes" class="themes-panel"></div>
-      <div class="home-actions">
-        <button id="btn-themes-start" class="btn btn-primary btn-big" type="button">▶ Lancer la partie</button>
-        <button id="btn-themes-back" class="btn btn-ghost btn-big" type="button">Retour</button>
+  <!-- ===== PHASES D'AVANT-COMPOSITION (une page par phase) : proposition → vote → préparation ===== -->
+  <section id="screen-pre" class="screen pre" data-screen="pre" hidden>
+    <div class="pre-card">
+      <header class="pre-head">
+        <ol class="pre-steps" id="pre-steps" aria-label="Étapes de la partie"></ol>
+        <div class="pre-timer">
+          <span class="pre-clock" id="pre-clock" role="timer" aria-label="Temps restant dans cette phase">0:00</span>
+          <div class="rb-progress pre-progress" role="progressbar" aria-label="Temps écoulé" aria-valuemin="0" aria-valuemax="100"><i id="pre-fill"></i></div>
+        </div>
+      </header>
+      <h2 class="pre-title" id="pre-title"></h2>
+      <p class="pre-instructions" id="pre-instructions"></p>
+      <div class="pre-theme" id="pre-theme" hidden></div>
+      <div class="pre-body" id="pre-body"></div>
+      <p class="pre-status" id="pre-status" role="status" aria-live="polite"></p>
+      <div class="pre-foot">
+        <button id="btn-pre-quit" class="btn btn-ghost btn-small" type="button"><i class="ic" data-i="close"></i> Quitter la partie</button>
       </div>
     </div>
   </section>
@@ -200,11 +304,8 @@
           <div class="segmented" id="setup-seconds" role="group" aria-label="Durée d'un round"></div>
         </div>
         <div class="setup-field">
-          <span class="setup-label">Tempo de départ</span>
-          <div class="setup-tempo">
-            <input id="setup-bpm" type="range" aria-label="Tempo de départ en BPM">
-            <span><strong id="setup-bpm-value">110</strong> BPM</span>
-          </div>
+          <span class="setup-label">Vitesse des phases <small>(proposition, vote, préparation)</small></span>
+          <div class="segmented" id="setup-speed" role="group" aria-label="Vitesse des phases avant la composition"></div>
         </div>
       </div>
 
@@ -222,14 +323,14 @@
   <section id="screen-editor" class="screen editor" data-screen="editor" hidden>
     <header class="topbar">
       <div class="brand">
-        <button id="btn-sidebar" class="icon-btn" type="button" aria-label="Afficher ou masquer le panneau des pistes et instruments" aria-pressed="true" title="Panneau pistes / instruments">☰</button>
+        <button id="btn-sidebar" class="icon-btn" type="button" aria-label="Afficher ou masquer le panneau des pistes et instruments" aria-pressed="true" title="Panneau pistes / instruments"><i class="ic" data-i="menu"></i></button>
         <span class="brand-name">GARTIC BANDE</span>
         <span class="mode-pill mode-pill-small" id="mode-pill">Build Up</span>
       </div>
 
       <div class="transport">
-        <button id="btn-play" class="btn btn-play" aria-label="Lecture">▶ Lecture</button>
-        <button id="btn-stop" class="btn" aria-label="Arrêt" disabled>⏹ Arrêt</button>
+        <button id="btn-play" class="btn btn-play" aria-label="Lecture"><i class="ic" data-i="play"></i> Lecture</button>
+        <button id="btn-stop" class="btn" aria-label="Arrêt" disabled><i class="ic" data-i="stop"></i> Arrêt</button>
         <div class="status" id="status" aria-live="polite">
           <span class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
           <span id="status-text">À l'arrêt</span>
@@ -245,9 +346,9 @@
         <span class="tempo-value"><strong id="bpm-value">110</strong> BPM</span>
       </div>
 
-      <button id="btn-studio-home" class="btn btn-ghost free-only" type="button">🏠 Accueil</button>
-      <button id="btn-restart" class="btn btn-ghost free-only">↺ Recommencer</button>
-      <button id="btn-quit-game" class="btn btn-ghost game-only">✕ Quitter la partie</button>
+      <button id="btn-studio-home" class="btn btn-ghost free-only" type="button"><i class="ic" data-i="home"></i> Accueil</button>
+      <button id="btn-restart" class="btn btn-ghost free-only"><i class="ic" data-i="restart"></i> Recommencer</button>
+      <button id="btn-quit-game" class="btn btn-ghost game-only"><i class="ic" data-i="close"></i> Quitter la partie</button>
     </header>
 
     <main class="workspace">
@@ -265,21 +366,31 @@
         <div class="panel" id="instrument-panel">
           <h2>Instrument <small id="instrument-for"></small></h2>
           <div id="instrument-picker" class="instrument-picker"></div>
-          <button id="btn-new-instrument" class="btn btn-ghost btn-block btn-small" type="button">＋ Créer un instrument</button>
-          <button id="btn-my-sounds" class="btn btn-ghost btn-block btn-small" type="button">🎧 Mes sons (importer)</button>
+          <button id="btn-my-sounds" class="btn btn-ghost btn-block btn-small" type="button"><i class="ic" data-i="headphones"></i> Mes sons (importer)</button>
           <div id="instrument-settings" class="instrument-settings" hidden></div>
         </div>
 
-        <details class="tips-box"><summary>💡 Astuces</summary><p class="tips" id="tips"></p></details>
+        <details class="tips-box"><summary><i class="ic" data-i="bulb"></i> Astuces</summary><p class="tips" id="tips"></p></details>
       </aside>
 
-      <section class="stage">
+      <section class="stage" id="stage" data-dock="pinned">
+      <div class="stage-main">
         <!-- Round en cours : intégré à la zone de travail (pas de barre d'étapes) -->
         <div id="round-bar" class="round-bar game-only" data-state="idle">
           <div class="rb-round"><strong id="rb-label">Round 1/4</strong><small id="rb-kind"></small><small id="rb-theme" class="rb-theme"></small></div>
           <div class="rb-time" id="rb-time" role="timer" aria-label="Temps restant dans le round">0:00</div>
           <div class="rb-progress" role="progressbar" aria-label="Temps écoulé" aria-valuemin="0" aria-valuemax="100"><i id="rb-fill"></i></div>
           <div class="rb-state"><span class="rb-me" id="rb-me" aria-live="polite"></span><span class="rb-ready" id="rb-ready" aria-live="polite"></span></div>
+        </div>
+        <div id="phone-idea" class="phone-idea" hidden><small>Ton thème</small><strong id="pi-text"></strong></div>
+        <div id="phone-bar" class="phone-bar" hidden>
+          <div class="pb-main">
+            <div class="pb-round"><strong id="pb-round">Round</strong><small id="pb-kind"></small></div>
+            <div class="pb-time" id="pb-time" role="timer" aria-label="Temps restant">0:00</div>
+            <div class="rb-progress" role="progressbar" aria-label="Temps écoulé"><i id="pb-fill"></i></div>
+            <button id="pb-ready" class="btn btn-primary" type="button"><i class="ic" data-i="check"></i> Prêt</button>
+            <button id="pb-quit" class="btn btn-ghost" type="button"><i class="ic" data-i="close"></i> Quitter</button>
+          </div>
         </div>
         <div class="stage-bar">
           <div class="stage-title">
@@ -288,13 +399,24 @@
             <span id="stage-instrument" class="stage-instrument"></span>
           </div>
           <div class="stage-actions">
-            <button id="btn-clear" class="btn btn-ghost">🧹 Effacer les notes de la piste</button>
-            <button id="btn-to-pick" class="btn btn-primary game-only" hidden>🎨 Choisir mon instrument</button>
-            <button id="btn-validate" class="btn btn-primary game-only" hidden>✅ Prêt</button>
+            <button id="btn-validate" class="btn btn-primary game-only" hidden><i class="ic" data-i="check"></i> Prêt</button>
           </div>
         </div>
 
         <div id="phase-banner" class="phase-banner game-only" hidden></div>
+
+        <!-- Mode Phone : ce qu'il faut faire, en GROS, juste au-dessus du piano-roll -->
+        <div id="phone-task" class="phone-task" hidden>
+          <div class="pt-body">
+            <strong id="pt-title"></strong>
+            <p id="pt-text" aria-live="polite"></p>
+            <label id="pt-title-field" class="pt-title-field" hidden>
+              <span>Titre de ta chanson (secret, révélé à la fin)</span>
+              <input id="pb-title" class="text-input" type="text" maxlength="80" autocomplete="off" placeholder="Ex. : Joyeux anniversaire">
+            </label>
+          </div>
+          <button id="pt-extra" class="btn btn-secondary" type="button" hidden></button>
+        </div>
 
         <!-- Voix robot : une voyelle par note -->
         <div id="vowel-bar" class="vowel-bar" hidden>
@@ -303,64 +425,26 @@
             <span id="vowel-hint" class="vowel-hint"></span>
           </div>
           <div id="vowel-buttons" class="vowel-buttons" role="group" aria-label="Voyelle"></div>
-          <button id="btn-note-delete" class="btn btn-ghost btn-small" type="button" hidden>🗑 Supprimer la note</button>
+          <button id="btn-note-delete" class="btn btn-ghost btn-small" type="button" hidden><i class="ic" data-i="trash"></i> Supprimer la note</button>
         </div>
 
-        <!-- Barre d'outils du piano-roll : mode, grille, zoom, navigation -->
-        <div id="grid-bar" class="grid-bar" role="group" aria-label="Outils du piano-roll">
-          <div class="tool-group" role="group" aria-label="Mode de difficulté">
-            <div class="mode-switch" id="mode-switch">
-              <button type="button" class="mode-btn" data-mode="baby" aria-pressed="false" title="Baby : une gamme pentatonique, rythme simple"><span>👶</span> Baby</button>
-              <button type="button" class="mode-btn" data-mode="beginner" aria-pressed="false" title="Débutant : les 7 notes blanches, toutes libres"><span>🎹</span> Débutant</button>
-              <button type="button" class="mode-btn" data-mode="expert" aria-pressed="true" title="Expert : toutes les notes, rythme très fin"><span>🎼</span> Expert</button>
-            </div>
-            <div class="scale-switch" id="scale-switch" role="group" aria-label="Gamme du mode Baby" hidden>
-              <button type="button" class="scale-btn" data-scale="major" aria-pressed="true" title="Pentatonique majeure : Do Ré Mi Sol La">Majeure</button>
-              <button type="button" class="scale-btn" data-scale="minor" aria-pressed="false" title="Pentatonique mineure : Do Mi♭ Fa Sol Si♭">Mineure</button>
-            </div>
-          </div>
-          <div class="tool-group" role="group" aria-label="Grille de placement">
-            <div class="grid-units" id="grid-units" aria-label="Pas de la grille"></div>
-            <button type="button" id="grid-magnet" class="grid-magnet" aria-pressed="true" title="Aimant : les notes se calent sur la grille. Garde Alt enfoncée pour placer librement.">🧲 Aimant</button>
-          </div>
-          <div class="tool-group zoom-group" role="group" aria-label="Zoom et navigation">
-            <span class="zoom-axis" title="Zoom horizontal (temps) : Ctrl + molette">↔
-              <button type="button" class="icon-btn mini" id="zoom-x-out" aria-label="Dézoomer horizontalement">−</button>
-              <output id="zoom-x-val" class="zoom-val">100%</output>
-              <button type="button" class="icon-btn mini" id="zoom-x-in" aria-label="Zoomer horizontalement">+</button>
-            </span>
-            <span class="zoom-axis" title="Zoom vertical (hauteur des notes) : Ctrl + Maj + molette">↕
-              <button type="button" class="icon-btn mini" id="zoom-y-out" aria-label="Dézoomer verticalement">−</button>
-              <output id="zoom-y-val" class="zoom-val">100%</output>
-              <button type="button" class="icon-btn mini" id="zoom-y-in" aria-label="Zoomer verticalement">+</button>
-            </span>
-            <button type="button" class="grid-magnet" id="zoom-fit" title="Ajuster la grille aux notes de la piste">⤢ Ajuster</button>
-            <button type="button" class="grid-magnet" id="zoom-reset" title="Revenir au zoom par défaut">↺ 100 %</button>
-            <span class="zoom-axis" title="Naviguer d'une octave à l'autre">Octave
-              <button type="button" class="icon-btn mini" id="oct-up" aria-label="Octave plus aiguë">▲</button>
-              <button type="button" class="icon-btn mini" id="oct-down" aria-label="Octave plus grave">▼</button>
-            </span>
-            <button type="button" class="grid-magnet active" id="follow-btn" aria-pressed="true" title="La grille suit la barre de lecture pendant l'écoute">🎯 Suivre</button>
-          </div>
-          <span class="grid-readout" id="grid-readout" aria-live="off">Maintiens <kbd>Alt</kbd> pour placer librement</span>
-        </div>
         <div id="mode-notice" class="mode-notice" role="status" hidden></div>
-
         <div id="roll" class="roll"></div>
 
         <!-- Piste « voix micro » : enregistrement, réécoute, position et volume -->
         <div id="voice-panel" class="voice-panel" hidden>
           <div class="voice-intro">
-            <h3>🎤 Ta voix</h3>
-            <p>Appuie sur « Enregistrer » : le navigateur te demandera l'accès au micro. Avec un casque, le micro ne capte pas la musique.</p>
+            <h3><i class="ic" data-i="mic"></i> Ta voix</h3>
+            <p>Appuie sur « Enregistrer sur la boucle » : la chanson joue, le curseur avance et ta voix apparaît en direct sur la timeline. Mets un casque pour que le micro ne capte pas la musique.</p>
+            <p id="voice-calib" class="voice-calib" hidden>Ton micro n'est pas calibré : ta voix risque d'être décalée. <button type="button" id="voice-calib-btn" class="btn btn-ghost">Calibrer le micro</button></p>
           </div>
           <p id="voice-status" class="voice-status" role="status" aria-live="polite"></p>
           <div class="voice-actions">
-            <button id="btn-rec" class="btn btn-primary" type="button">⏺ Enregistrer</button>
-            <button id="btn-rec-loop" class="btn btn-violet" type="button" title="La chanson joue pendant que tu enregistres : ta voix est calée sur le début de la boucle">🎼 Enregistrer sur la boucle</button>
-            <button id="btn-rec-stop" class="btn btn-primary" type="button" hidden>⏹ Terminer</button>
-            <button id="btn-rec-play" class="btn btn-secondary" type="button">▶ Réécouter</button>
-            <button id="btn-rec-redo" class="btn btn-ghost" type="button">↺ Recommencer</button>
+            <button id="btn-rec-loop" class="btn btn-primary" type="button" title="La chanson joue pendant que tu enregistres : ta voix est calée sur le début de la boucle"><i class="ic" data-i="note"></i> Enregistrer sur la boucle</button>
+            <button id="btn-rec" class="btn btn-secondary" type="button" hidden><i class="ic" data-i="record"></i> Enregistrer</button>
+            <button id="btn-rec-stop" class="btn btn-primary" type="button" hidden><i class="ic" data-i="stop"></i> Terminer</button>
+            <button id="btn-rec-play" class="btn btn-secondary" type="button"><i class="ic" data-i="play"></i> Réécouter</button>
+            <button id="btn-rec-redo" class="btn btn-ghost" type="button"><i class="ic" data-i="restart"></i> Recommencer</button>
           </div>
           <div class="voice-meter" aria-hidden="true"><i id="voice-level"></i></div>
           <div class="voice-timeline-wrap">
@@ -370,9 +454,9 @@
           <div class="voice-controls">
             <div class="voice-field">
               <span>Début</span>
-              <button id="btn-clip-left" class="icon-btn" type="button" aria-label="Avancer l'enregistrement d'un temps plus tôt">◀</button>
+              <button id="btn-clip-left" class="icon-btn" type="button" aria-label="Avancer l'enregistrement d'un temps plus tôt"><i class="ic flip" data-i="play"></i></button>
               <strong id="voice-pos">—</strong>
-              <button id="btn-clip-right" class="icon-btn" type="button" aria-label="Reculer l'enregistrement d'un temps plus tard">▶</button>
+              <button id="btn-clip-right" class="icon-btn" type="button" aria-label="Reculer l'enregistrement d'un temps plus tard"><i class="ic" data-i="play"></i></button>
             </div>
             <label class="voice-field">
               <span>Volume</span>
@@ -382,25 +466,139 @@
           </div>
         </div>
         <div id="lanes" class="lanes" hidden></div>
-        <div id="pick" class="pick" hidden></div>
         <div id="transition" class="transition" hidden></div>
 
         <p class="roll-legend" id="roll-legend"></p>
+      </div>
+<!-- ===== Barre d'outils unique : horizontale en bas sur ordinateur, verticale sur le côté sur écran tactile ===== -->
+<div id="dock" class="dock" role="toolbar" aria-label="Outils d'édition">
+  <div class="dock-group" role="group" aria-label="Édition">
+    <button id="lt-pencil" class="lt-btn active" aria-pressed="true" type="button" aria-label="Crayon" title="Crayon : touche ou clique la grille pour poser une note, tire la poignée de droite pour l'allonger"><i class="ic" data-i="pencil"></i><span class="lt-label">Crayon</span></button>
+    <button id="lt-select" class="lt-btn" type="button" aria-label="Sélection" title="Sélection : choisis une ou plusieurs notes (ou trace une zone), puis déplace-les ensemble"><i class="ic" data-i="cursor"></i><span class="lt-label">Sélection</span></button>
+    <button id="lt-dup" class="lt-btn ctx" type="button" aria-label="Copier / Coller" title="Copier / Coller la sélection (ajoute une copie juste après)"><i class="ic" data-i="copy"></i><span class="lt-label">Copier / Coller</span></button>
+    <button id="lt-del" class="lt-btn ctx" type="button" aria-label="Supprimer" title="Supprimer la sélection"><i class="ic" data-i="trash"></i><span class="lt-label">Supprimer</span></button>
+  </div>
+  <div class="dock-group" role="group" aria-label="Historique">
+    <button id="lt-undo" class="lt-btn" type="button" aria-label="Annuler" title="Annuler (Ctrl + Z)"><i class="ic" data-i="undo"></i><span class="lt-label">Annuler</span></button>
+    <button id="lt-redo" class="lt-btn" type="button" aria-label="Rétablir" title="Rétablir (Ctrl + Maj + Z)"><i class="ic" data-i="redo"></i><span class="lt-label">Rétablir</span></button>
+  </div>
+  <div class="dock-group dock-touch-only" role="group" aria-label="Lecture">
+    <button id="lt-play" class="lt-btn lt-play" type="button" aria-label="Lecture" title="Lecture / Pause"><i class="ic" data-i="play"></i><span class="lt-label">Lecture</span></button>
+  </div>
+  <div class="dock-group" role="group" aria-label="Réglages">
+    <button id="lt-bpm" class="lt-btn" type="button" aria-label="BPM" title="Tempo (BPM)"><i class="ic" data-i="metronome"></i><span class="lt-label">BPM</span></button>
+    
+    <button id="lt-sub" class="lt-btn" type="button" aria-label="Grille" title="Subdivision de la grille et aimant"><i class="ic" data-i="grid"></i><span class="lt-label">Grille</span></button>
+    <button id="lt-grid" class="lt-btn" type="button" aria-label="Zoom" title="Zoom et navigation"><i class="ic" data-i="search"></i><span class="lt-label">Zoom</span></button>
+    <button id="lt-stn" class="lt-btn" type="button" aria-label="Speech to Note" title="Speech to Note : chante ou fredonne, les notes apparaissent"><i class="ic" data-i="mic"></i><span class="lt-label">Voix</span></button>
+    <button id="lt-oct" class="lt-btn" type="button" aria-label="Octaves" title="Changer d'octave (plage visible)"><i class="ic" data-i="octave"></i><span class="lt-label">Octaves</span></button>
+    <button id="lt-mode" class="lt-btn" type="button" aria-label="Instrument" title="Instrument, difficulté, effacer"><i class="ic" data-i="note"></i><span class="lt-label">Instrument</span></button>
+  </div>
+  <div class="dock-group dock-end" role="group">
+    <button id="lt-ready" class="lt-btn lt-ready game-only" type="button" aria-label="Prêt" title="Prêt : verrouille ta contribution"><i class="ic" data-i="check"></i><span class="lt-label">Prêt</span></button>
+    <button id="lt-pin" class="lt-btn lt-pin" type="button" aria-label="Épingler" title="Épingler / désépingler la barre d'outils"><i class="ic" data-i="pin"></i><span class="lt-label">Épingler</span></button>
+  </div>
+</div>
+<div id="dock-pop" class="dock-pop" hidden>
+  <div class="pop" data-pop="bpm" hidden>
+    <div class="pop-head"><strong>Tempo</strong><button type="button" class="pop-close" aria-label="Fermer"><i class="ic" data-i="close"></i></button></div>
+    <div class="bpm-box">
+      <button type="button" class="bpm-step" data-step="-5" aria-label="Moins 5 BPM">−5</button>
+      <button type="button" class="bpm-step" data-step="-1" aria-label="Moins 1 BPM">−1</button>
+      <label class="bpm-field"><input id="bpm-input" type="number" inputmode="numeric" min="60" max="180" step="1" aria-label="Tempo en BPM"><span>BPM</span></label>
+      <button type="button" class="bpm-step" data-step="1" aria-label="Plus 1 BPM">+1</button>
+      <button type="button" class="bpm-step" data-step="5" aria-label="Plus 5 BPM">+5</button>
+    </div>
+    <button type="button" id="lt-smart" class="smart-open" title="Smart BPM : trouve le tempo en tapant le rythme"><i class="ic" data-i="tap"></i> Smart BPM : taper le rythme</button>
+    <p class="pop-note" id="bpm-note"></p>
+  </div>
+  <div class="pop" data-pop="sub" hidden>
+    <div class="pop-head"><strong>Précision de la grille</strong><button type="button" class="pop-close" aria-label="Fermer"><i class="ic" data-i="close"></i></button></div>
+    <div class="grid-units" id="grid-units" aria-label="Subdivision de la grille"></div>
+    <button type="button" id="grid-magnet" class="grid-magnet" aria-pressed="true" title="Aimant : les notes se calent sur la grille. Garde Alt enfoncée pour placer librement."><i class="ic" data-i="magnet"></i> Aimant</button>
+    <p class="pop-note" id="grid-readout" aria-live="off">Maintiens <kbd>Alt</kbd> pour placer librement</p>
+  </div>
+  <div class="pop" data-pop="zoom" hidden>
+    <div class="pop-head"><strong>Zoom et navigation</strong><button type="button" class="pop-close" aria-label="Fermer"><i class="ic" data-i="close"></i></button></div>
+    <div class="zoom-rows">
+      <span class="zoom-axis" title="Zoom horizontal (temps) : Ctrl + molette"><i class="ic" data-i="arrowh"></i>
+        <button type="button" class="icon-btn mini" id="zoom-x-out" aria-label="Dézoomer horizontalement">−</button>
+        <output id="zoom-x-val" class="zoom-val">100%</output>
+        <button type="button" class="icon-btn mini" id="zoom-x-in" aria-label="Zoomer horizontalement">+</button>
+      </span>
+      <span class="zoom-axis" title="Zoom vertical (hauteur des notes) : Ctrl + Maj + molette"><i class="ic" data-i="arrowv"></i>
+        <button type="button" class="icon-btn mini" id="zoom-y-out" aria-label="Dézoomer verticalement">−</button>
+        <output id="zoom-y-val" class="zoom-val">100%</output>
+        <button type="button" class="icon-btn mini" id="zoom-y-in" aria-label="Zoomer verticalement">+</button>
+      </span>
+    </div>
+    <div class="zoom-btns">
+      <button type="button" class="grid-magnet" id="zoom-fit" title="Ajuster la grille aux notes de la piste"><i class="ic" data-i="search"></i> Ajuster</button>
+      <button type="button" class="grid-magnet" id="zoom-reset" title="Revenir au zoom par défaut"><i class="ic" data-i="restart"></i> 100 %</button>
+      <button type="button" class="grid-magnet active" id="follow-btn" aria-pressed="true" title="La grille suit la barre de lecture pendant l'écoute"><i class="ic" data-i="target"></i> Suivre</button>
+    </div>
+    <p class="pop-note pinch-note">Sur écran tactile : pince deux doigts sur la grille pour zoomer.</p>
+  </div>
+  <div class="pop" data-pop="oct" hidden>
+    <div class="pop-head"><strong>Octaves</strong><button type="button" class="pop-close" aria-label="Fermer"><i class="ic" data-i="close"></i></button></div>
+    <div class="oct-box">
+      <button type="button" class="bpm-step" id="oct-up" aria-label="Monter d'une octave"><i class="ic" data-i="arrowv"></i> Monter</button>
+      <button type="button" class="bpm-step" id="oct-down" aria-label="Descendre d'une octave"><i class="ic" data-i="arrowv"></i> Descendre</button>
+    </div>
+    <p class="pop-note">Plage visible : <strong id="oct-range">—</strong></p>
+    <p class="pop-note">Change seulement ce qu'on voit : les notes ne sont pas transposées.</p>
+  </div>
+  <div class="pop" data-pop="mode" hidden>
+    <div class="pop-head"><strong>Instrument et difficulté</strong><button type="button" class="pop-close" aria-label="Fermer"><i class="ic" data-i="close"></i></button></div>
+          <div class="quick-sel" id="quick-sel">
+            <label class="quick-instrument" title="Changer d'instrument : tes notes sont conservées">
+              <span class="quick-label">Instrument</span>
+              <select id="quick-instrument" aria-label="Instrument de ta couche"></select>
+            </label>
+          <div class="quick-group" role="group" aria-label="Mode de difficulté">
+              <div class="mode-switch" id="mode-switch">
+                <button type="button" class="mode-btn" data-mode="baby" aria-pressed="false" title="Baby : une gamme pentatonique, rythme simple"><span><i class="ic" data-i="baby"></i></span> Baby</button>
+                <button type="button" class="mode-btn" data-mode="beginner" aria-pressed="false" title="Débutant : les 7 notes blanches, toutes libres"><span><i class="ic" data-i="piano"></i></span> Débutant</button>
+                <button type="button" class="mode-btn" data-mode="expert" aria-pressed="true" title="Expert : toutes les notes, rythme très fin"><span><i class="ic" data-i="note"></i></span> Expert</button>
+              </div>
+              <div class="scale-switch" id="scale-switch" role="group" aria-label="Gamme du mode Baby" hidden>
+                <button type="button" class="scale-btn" data-scale="major" aria-pressed="true" title="Pentatonique majeure : Do Ré Mi Sol La">Majeure</button>
+                <button type="button" class="scale-btn" data-scale="minor" aria-pressed="false" title="Pentatonique mineure : Do Mi♭ Fa Sol Si♭">Mineure</button>
+              </div>
+            </div>
+          </div>
+    <div class="pop-actions">
+            <button id="btn-clear" class="btn btn-ghost"><i class="ic" data-i="trash"></i> Effacer les notes de la piste</button>
+    </div>
+  </div>
+</div>
+<button id="dock-handle" class="dock-handle" type="button" aria-label="Afficher la barre d'outils" title="Afficher la barre d'outils" hidden><i class="ic" data-i="pin"></i></button>
       </section>
     </main>
   </section>
 
   <!-- ======================== ÉCRAN FINAL DE LA PARTIE ======================== -->
+  <!-- Mode PHONE : écrire, deviner, attente et révélation (les rounds de piano-roll et de chant utilisent l'éditeur) -->
+  <section id="screen-phone" class="screen phone-screen" data-screen="phone" hidden>
+    <header class="phone-head">
+      <div class="ph-title"><strong id="ph-round">Phone</strong><small id="ph-kind"></small></div>
+      <div class="ph-time" id="ph-time" role="timer" aria-label="Temps restant">0:00</div>
+      <div class="ph-progress" role="progressbar" aria-label="Temps écoulé"><i id="ph-fill"></i></div>
+      <button id="ph-quit" class="btn btn-ghost" type="button"><i class="ic" data-i="close"></i> Quitter</button>
+    </header>
+    <main class="phone-body" id="ph-body"></main>
+  </section>
+
   <section id="screen-final" class="screen final" data-screen="final" hidden>
     <div class="confetti" aria-hidden="true"></div>
     <div class="final-card">
       <div class="mode-pill" id="reveal-pill">Révélations</div>
-      <h2 class="final-title" id="reveal-heading">🎉 Les révélations</h2>
+      <h2 class="final-title" id="reveal-heading">Les révélations</h2>
       <p class="tagline tagline-small" id="final-subtitle"></p>
       <p class="reveal-theme" id="reveal-theme"></p>
 
       <div id="audio-banner" class="audio-banner" role="alert" hidden>
-        <span>🔇 Le son a été interrompu (veille, onglet en pause ou blocage du navigateur).</span>
+        <span><i class="ic" data-i="mute"></i> Le son a été interrompu (veille, onglet en pause ou blocage du navigateur).</span>
         <button id="btn-audio-resume" class="btn btn-small btn-primary" type="button">Reprendre le son</button>
       </div>
 
@@ -408,10 +606,10 @@
 
       <!-- Composition terminée : on attend que l'hôte lance la révélation -->
       <div id="reveal-wait" class="reveal-wait" hidden>
-        <div class="rw-icon" aria-hidden="true">🎼</div>
+        <div class="rw-icon" aria-hidden="true"><i class="ic" data-i="note"></i></div>
         <h3>La composition est terminée !</h3>
         <p id="reveal-wait-text"></p>
-        <button id="btn-reveal-start" class="btn btn-primary btn-big" type="button" hidden>▶ Commencer la révélation</button>
+        <button id="btn-reveal-start" class="btn btn-primary btn-big" type="button" hidden><i class="ic" data-i="play"></i> Commencer la révélation</button>
       </div>
 
       <div class="reveal-stage" id="reveal-stage">
@@ -420,11 +618,11 @@
         <p class="reveal-status" id="reveal-status" aria-live="polite"></p>
         <div id="final-lanes" class="lanes"></div>
         <div class="final-actions">
-          <button id="btn-reveal-replay" class="btn btn-secondary" type="button">↺ Réécouter cette chanson</button>
-          <button id="btn-reveal-next" class="btn btn-primary" type="button">Chanson suivante ▶</button>
-          <button id="btn-reveal-end" class="btn btn-primary" type="button">🏁 Terminer la partie</button>
+          <button id="btn-reveal-replay" class="btn btn-secondary" type="button"><i class="ic" data-i="restart"></i> Réécouter cette chanson</button>
+          <button id="btn-reveal-next" class="btn btn-primary" type="button">Chanson suivante <i class="ic" data-i="play"></i></button>
+          <button id="btn-reveal-end" class="btn btn-primary" type="button"><i class="ic" data-i="flag"></i> Terminer la partie</button>
           <label class="reveal-volume" title="Volume sur cet appareil seulement : n'arrête pas la musique">
-            🔊 <input id="reveal-volume" type="range" min="0" max="100" value="100" aria-label="Volume sur cet appareil">
+            <i class="ic" data-i="volume"></i> <input id="reveal-volume" type="range" min="0" max="100" value="100" aria-label="Volume sur cet appareil">
           </label>
         </div>
         <p class="reveal-host-note" id="reveal-host-note"></p>
@@ -434,7 +632,7 @@
       <div class="contributions" id="final-contributions"></div>
 
       <div class="home-actions">
-        <button id="btn-final-again" class="btn btn-primary btn-big">🎲 Nouvelle partie</button>
+        <button id="btn-final-again" class="btn btn-primary btn-big"><i class="ic" data-i="dice"></i> Nouvelle partie</button>
         <button id="btn-final-home" class="btn btn-ghost btn-big">Accueil</button>
       </div>
     </div>
@@ -451,38 +649,14 @@
     </form>
   </dialog>
 
-  <dialog id="instrument-dialog" class="dialog dialog-wide" aria-labelledby="inst-dialog-title">
-    <div class="inst-dialog">
-      <h3 id="inst-dialog-title">Créer un instrument</h3>
-      <div class="inst-top">
-        <label class="inst-name">
-          <span>Nom de l'instrument</span>
-          <input id="inst-name" type="text" maxlength="20" placeholder="Mon instrument" autocomplete="off">
-        </label>
-        <div class="inst-icons" id="inst-icons" role="group" aria-label="Icône de l'instrument"></div>
-      </div>
-      <div id="inst-settings" class="settings-grid"></div>
-      <div class="inst-preview">
-        <button id="btn-inst-note" class="btn btn-secondary btn-small" type="button">♪ Écouter une note</button>
-        <button id="btn-inst-melody" class="btn btn-secondary btn-small" type="button">▶ Petite mélodie</button>
-      </div>
-      <p id="inst-error" class="form-error" role="alert"></p>
-      <div class="dialog-actions">
-        <button id="btn-inst-delete" class="btn btn-ghost" type="button">🗑 Supprimer</button>
-        <button id="btn-inst-cancel" class="btn btn-ghost" type="button">Annuler</button>
-        <button id="btn-inst-save" class="btn btn-primary" type="button">💾 Sauvegarder</button>
-      </div>
-    </div>
-  </dialog>
-
   <dialog id="sounds-dialog" class="dialog dialog-wide" aria-labelledby="sounds-title">
     <div class="sounds-dialog">
-      <h3 id="sounds-title">🎧 Mes sons</h3>
+      <h3 id="sounds-title"><i class="ic" data-i="headphones"></i> Mes sons</h3>
       <p class="sounds-intro" id="sounds-intro"></p>
       <div id="sounds-drop" class="sounds-drop">
         <strong>Glisse tes fichiers ici</strong>
         <span>ou</span>
-        <button id="btn-sounds-import" class="btn btn-primary" type="button">📂 Importer un son</button>
+        <button id="btn-sounds-import" class="btn btn-primary" type="button"><i class="ic" data-i="folder"></i> Importer un son</button>
         <input id="sounds-file" type="file" accept=".wav,.mp3,.ogg,audio/wav,audio/mpeg,audio/ogg" multiple hidden />
       </div>
       <div class="sounds-limit">
@@ -513,25 +687,226 @@
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <div id="fatal-error" class="fatal-error" hidden></div>
 
+  <!-- Téléphone tenu à la verticale : le jeu n'existe qu'en paysage, on demande de tourner l'appareil. -->
+  <div id="rotate-overlay" class="rotate-overlay" role="alert" aria-live="polite">
+    <svg class="rotate-phone" viewBox="0 0 64 64" width="96" height="96" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="22" y="8" width="20" height="36" rx="4"/><path d="M30 38h4"/><path d="M12 50c6 8 22 10 34 2M46 52l-3-7M46 52l-7 1"/></svg>
+    <strong>Tourne ton téléphone</strong>
+    <span>Gartic Bande se joue en mode paysage (écran à l'horizontale).</span>
+  </div>
+  <!-- Smart BPM : trouve le tempo d'une chanson en tapant son rythme (aucun micro, aucun envoi : calcul local) -->
+  <dialog id="smart-dialog" class="smart-dialog" aria-labelledby="smart-title">
+    <div class="smart-head">
+      <h3 id="smart-title"><i class="ic" data-i="tap"></i> Smart BPM</h3>
+      <button type="button" id="smart-close" class="icon-btn" aria-label="Fermer sans appliquer"><i class="ic" data-i="close"></i></button>
+    </div>
+    <p class="smart-help" id="smart-help">Lance ta chanson de ton côté, puis tape sur le grand bouton <strong>au rythme des temps</strong>. Le tempo se précise à chaque appui.</p>
+    <button type="button" id="smart-tap" class="smart-tap" aria-label="Taper le rythme">
+      <span class="smart-bpm"><strong id="smart-bpm">—</strong><small>BPM</small></span>
+      <span class="smart-sub" id="smart-sub">Tape le rythme</span>
+    </button>
+    <div class="smart-alts" id="smart-alts" hidden></div>
+    <p class="smart-state" id="smart-state" aria-live="polite"></p>
+    <div class="smart-actions">
+      <button type="button" id="smart-reset" class="btn btn-ghost"><i class="ic" data-i="restart"></i> Recommencer</button>
+      <button type="button" id="smart-use" class="btn btn-primary" disabled><i class="ic" data-i="check"></i> Utiliser ce BPM</button>
+    </div>
+  </dialog>
+
   <script src="vendor/Tone.js"></script>
+  <script src="js/icons-instruments.js"></script>
+  <script src="js/icons.js"></script>
   <script src="js/config.js"></script>
+  <script src="js/pitch.js"></script>
+  <script src="js/synth.js"></script>
+  <script src="hats/hats.js"></script>
+  <script src="js/avatar.js"></script>
   <script src="js/instruments.js"></script>
+  <script src="js/locker.js"></script>
   <script src="js/sounds.js"></script>
   <script src="js/state.js"></script>
   <script src="js/audio.js"></script>
   <script src="js/voice.js"></script>
   <script src="js/rounds.js"></script>
+  <script src="js/modes.js"></script>
+  <script src="js/phone.js"></script>
   <script src="js/themes.js"></script>
+  <script src="js/phases.js"></script>
   <script src="js/bots.js"></script>
   <script src="js/game.js"></script>
+
+  <!-- Speech to Note : fenêtre de préparation et de calibrage (js/stn.js) ; pendant la capture, seul le bandeau #stn-hud reste -->
+  <dialog id="settings-dialog" class="settings-dialog" aria-labelledby="settings-title">
+    <div class="stn-head">
+      <h3 id="settings-title"><i class="ic" data-i="gear"></i> Paramètres</h3>
+      <button type="button" id="settings-close" class="icon-btn" aria-label="Fermer"><i class="ic" data-i="close"></i></button>
+    </div>
+    <section class="settings-section">
+      <h4>Micro</h4>
+      <p class="stn-help" id="settings-mic-status"></p>
+      <label class="stn-check"><input type="checkbox" id="settings-latency-on"> Compensation de latence (décale ta voix pour compenser le retard du micro)</label>
+      <ul id="settings-mic-list" class="settings-mic-list"></ul>
+      <p class="stn-help">Pour un meilleur résultat, utilise un <strong>casque</strong> : sinon le micro reprend la musique qui sort des haut-parleurs. Le calibrage est enregistré dans ton navigateur, pour chaque micro séparément.</p>
+      <div class="stn-actions"><button type="button" id="settings-calibrate" class="btn btn-primary">Calibrer mon micro</button></div>
+    </section>
+  </dialog>
+
+  <dialog id="cal-dialog" class="cal-dialog" aria-labelledby="cal-title">
+    <div class="stn-head">
+      <h3 id="cal-title"><i class="ic" data-i="mic"></i> Calibrer le micro</h3>
+      <button type="button" id="cal-close" class="icon-btn" aria-label="Fermer"><i class="ic" data-i="close"></i></button>
+    </div>
+    <p id="cal-error" class="stn-error" role="alert" hidden></p>
+    <section data-cal="ready">
+      <label class="cal-headset"><input type="checkbox" id="cal-headset" checked> J'ai un casque ou des écouteurs</label>
+      <ol class="cal-steps">
+        <li id="cal-step1">Mets ton <strong>casque</strong>.</li>
+        <li id="cal-step2">Dis <strong>« ta »</strong> à chaque clic (et à chaque flash).</li>
+        <li>Ça dure environ 10 secondes.</li>
+      </ol>
+      <div class="cal-meter" aria-label="Niveau du micro"><i id="cal-meter"></i></div>
+      <p id="cal-mic" class="stn-help">Micro : en attente…</p>
+      <div class="stn-actions"><button type="button" id="cal-start" class="btn btn-primary cal-big">Commencer</button></div>
+    </section>
+    <section data-cal="running" hidden>
+      <div class="cal-stage" aria-live="polite"><div id="cal-flash" class="cal-flash"></div><div id="cal-line" class="cal-line" hidden></div></div>
+      <p id="cal-count" class="cal-count">Prépare-toi…</p>
+      <div class="stn-actions"><button type="button" id="cal-cancel" class="btn btn-ghost">Annuler</button></div>
+    </section>
+    <section data-cal="result" hidden>
+      <p id="cal-verdict" class="cal-verdict"></p>
+      <p id="cal-ms" class="cal-ms"></p>
+      <p id="cal-detail" class="stn-help"></p>
+      <div class="stn-actions">
+        <button type="button" id="cal-retry" class="btn btn-ghost">Refaire</button>
+        <button type="button" id="cal-done" class="btn btn-primary">Terminé</button>
+      </div>
+    </section>
+  </dialog>
+
+  <dialog id="stn-dialog" class="stn-dialog" aria-labelledby="stn-title">
+    <div class="stn-head">
+      <h3 id="stn-title"><i class="ic" data-i="mic"></i> Speech to Note</h3>
+      <button type="button" id="stn-close" class="icon-btn" aria-label="Fermer"><i class="ic" data-i="close"></i></button>
+    </div>
+    <p id="stn-error" class="stn-error" role="alert" hidden></p>
+
+    <section data-view="setup">
+      <p class="stn-help">Chante ou fredonne <strong>une mélodie à la fois</strong> : les notes apparaissent dans la grille pendant que tu chantes. Mets un <strong>casque</strong> pour que le micro n'entende pas la musique du jeu.</p>
+      <div class="stn-live" aria-live="off">
+        <span class="stn-level"><i id="stn-meter"></i></span>
+        <strong id="stn-live-note">—</strong>
+        <small id="stn-mic-state">Micro : en attente</small>
+      </div>
+      <div class="stn-settings">
+        <label>Durée maximale
+          <select id="stn-duration"><option value="10">10 s</option><option value="20">20 s</option><option value="30">30 s</option><option value="60">60 s</option></select>
+        </label>
+        <label>Compte à rebours
+          <select id="stn-countdown"><option value="0">Aucun</option><option value="3">3 s</option><option value="5">5 s</option></select>
+        </label>
+        <label class="stn-check"><input type="checkbox" id="stn-quant"> Aligner les notes sur la grille</label>
+        <label>Précision de la grille
+          <select id="stn-grid"><option value="auto">Celle de l'éditeur</option><option value="1">1/4 (un temps)</option><option value="0.5">1/8</option><option value="0.25">1/16</option><option value="0.125">1/32</option></select>
+        </label>
+        <label class="stn-check"><input type="checkbox" id="stn-latency-on"> Compensation de latence</label>
+        <label>Décalage (ms)
+          <input type="number" id="stn-latency-ms" min="-400" max="400" step="5" inputmode="numeric">
+        </label>
+        <label>Sensibilité aux attaques
+          <select id="stn-attack"><option value="0.25">Basse (attaques franches)</option><option value="0.5">Normale</option><option value="0.85">Haute (« la la » doux)</option></select>
+        </label>
+        <label>Écart minimal entre deux notes
+          <select id="stn-attack-gap"><option value="60">60 ms (rapide)</option><option value="90">90 ms</option><option value="140">140 ms</option><option value="200">200 ms (prudent)</option></select>
+        </label>
+        <label class="stn-check"><input type="checkbox" id="stn-debug"> Diagnostic (affiche les détails de la détection)</label>
+        <label>Octave des notes créées
+          <select id="stn-octave"><option value="-2">−2 octaves</option><option value="-1">−1 octave</option><option value="0">Comme détecté</option><option value="1">+1 octave</option><option value="2">+2 octaves</option></select>
+        </label>
+      </div>
+      <p class="stn-note" id="stn-latency-info"></p>
+      <div class="stn-row">
+        <button type="button" id="stn-open-latency" class="btn btn-ghost">Calibrage du microphone</button>
+        <button type="button" id="stn-open-voice" class="btn btn-ghost">Calibrage vocal</button>
+      </div>
+      <div class="stn-row stn-actions">
+        <button type="button" id="stn-cancel" class="btn btn-ghost">Annuler</button>
+        <button type="button" id="stn-start" class="btn btn-primary"><i class="ic" data-i="mic"></i> Démarrer</button>
+      </div>
+    </section>
+
+    <section data-view="latency" hidden>
+      <div class="stn-subhead"><button type="button" class="btn btn-ghost stn-back" data-back><i class="ic" data-i="arrowv"></i> Retour</button><strong>Calibrage du microphone</strong></div>
+      <p class="stn-help">Mesure le décalage moyen entre un repère et ton son. C'est le décalage <strong>global</strong> (ta réaction + le micro + le traitement), pas la latence exacte de ton matériel. Utilise un casque.</p>
+      <div class="stn-tabs" role="tablist">
+        <button type="button" class="stn-tab active" data-lat-mode="click" role="tab">Clics sonores</button>
+        <button type="button" class="stn-tab" data-lat-mode="visual" role="tab">Boule visuelle</button>
+      </div>
+      <p class="stn-note" id="stn-lat-how"></p>
+      <div class="stn-ball" id="stn-ball" aria-hidden="true"><span class="stn-ball-line"></span><span class="stn-ball-dot" id="stn-ball-dot"></span><span class="stn-ball-pulse" id="stn-ball-pulse"></span></div>
+      <p class="stn-progress" id="stn-lat-progress" aria-live="polite"></p>
+      <div class="stn-result" id="stn-lat-result" hidden></div>
+      <div class="stn-row stn-actions">
+        <button type="button" id="stn-lat-disable" class="btn btn-ghost" hidden>Désactiver la compensation</button>
+        <button type="button" id="stn-lat-run" class="btn btn-primary">Lancer le calibrage</button>
+        <button type="button" id="stn-lat-use" class="btn btn-primary" hidden>Utiliser</button>
+      </div>
+    </section>
+
+    <section data-view="voice" hidden>
+      <div class="stn-subhead"><button type="button" class="btn btn-ghost stn-back" data-back><i class="ic" data-i="arrowv"></i> Retour</button><strong>Calibrage vocal</strong></div>
+      <p class="stn-help">Le jeu joue une note, tu la reproduis en chantant, et on compare. Cela vérifie la <strong>détection de hauteur</strong> ; rien n'est modifié sans ton accord.</p>
+      <label class="stn-inline">Ta voix
+        <select id="stn-range"><option value="low">Grave</option><option value="mid" selected>Moyenne</option><option value="high">Aiguë</option></select>
+      </label>
+      <div class="stn-live"><span class="stn-level"><i id="stn-voice-meter"></i></span><strong id="stn-voice-live">—</strong><small id="stn-voice-state"></small></div>
+      <p class="stn-progress" id="stn-voice-progress" aria-live="polite"></p>
+      <ul class="stn-voice-list" id="stn-voice-list"></ul>
+      <p class="stn-note" id="stn-voice-summary"></p>
+      <div class="stn-row stn-actions">
+        <button type="button" id="stn-voice-apply" class="btn btn-ghost" hidden>Décaler mes notes</button>
+        <button type="button" id="stn-voice-reset" class="btn btn-ghost">Recommencer</button>
+        <button type="button" id="stn-voice-more" class="btn btn-ghost" hidden>Ajouter une 3e note</button>
+        <button type="button" id="stn-voice-run" class="btn btn-primary">Note suivante</button>
+      </div>
+    </section>
+  </dialog>
+
+  <div id="stn-overlay" class="stn-countdown" hidden aria-live="assertive"><strong id="stn-count-text">3</strong><small>Prépare-toi à chanter</small></div>
+  <div id="stn-hud" class="stn-hud" hidden role="status">
+    <div class="stn-hud-main">
+      <span class="stn-rec"><i></i><em>Capture</em></span>
+      <strong id="stn-time">0:00</strong>
+      <span class="stn-level"><i id="stn-hud-meter"></i></span>
+      <strong id="stn-hud-note" class="stn-hud-note">—</strong>
+      <small id="stn-hud-state">Micro actif</small>
+      <span id="stn-hud-count" class="stn-hud-count">0 note</span>
+    </div>
+    <pre id="stn-debug-box" class="stn-debug" hidden></pre>
+    <div class="stn-hud-actions">
+      <button type="button" id="stn-abort" class="btn btn-ghost">Annuler la session</button>
+      <button type="button" id="stn-stop" class="btn btn-primary">Arrêter</button>
+    </div>
+  </div>
+
+  <script src="js/bpm-tap.js"></script>
   <script src="js/ui.js"></script>
+  <script src="js/dock.js"></script>
+  <script src="js/mic-prefs.js"></script>
+  <script src="js/stn-core.js"></script>
+  <script src="js/stn.js"></script>
+  <script src="js/calibration-ui.js"></script>
+  <script src="js/settings-ui.js"></script>
   <script src="js/instrument-ui.js"></script>
+  <script src="js/synth-ui.js"></script>
   <script src="js/voice-ui.js"></script>
   <script src="js/sounds-ui.js"></script>
-  <script src="js/themes-ui.js"></script>
+  <script src="js/pregame-ui.js"></script>
   <script src="js/game-ui.js"></script>
   <script src="js/net.js"></script>
   <script src="js/online.js"></script>
+  <script src="js/phone-ui.js"></script>
   <script src="js/lobby-ui.js"></script>
+  <script src="js/avatar-ui.js"></script>
+  <script src="js/locker-ui.js"></script>
 </body>
 </html>

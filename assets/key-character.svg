@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1080 1080">
+  <defs>
+    <style>
+      .cls-1{display:none}
+      .cls-2{fill:#ffffff;stroke:#000000;stroke-width:20;stroke-linejoin:round}
+      .cls-3{fill:#d4145a;stroke:#000000;stroke-width:20;stroke-linejoin:round}
+      .cls-4{fill:#e6e6e6;stroke:#000000;stroke-width:20;stroke-linejoin:round}
+      .cls-5{fill:#ffffff;stroke:#000000;stroke-width:6;stroke-linejoin:round}
+      .cls-6{fill:#000000;stroke:#000000;stroke-width:20;stroke-linejoin:round}
+      .cls-7{fill:none;stroke:#000000;stroke-width:20;stroke-linejoin:round}
+    </style>
+  </defs>
+  <title>Key character</title>
+  <g id="Layer_1" data-name="Layer 1">
+    <g id="Live_Paint_Group" data-name="Live Paint Group">
+      <g id="Live_Paint_Sources" data-name="Live Paint Sources" class="cls-1">
+        <path d="M190 201.382 L890 201.382 L890 884.29 L190 884.29 Z" class="cls-2"/>
+      </g>
+      <path id="Face" d="M190 884.29 L190 201.382 L890 201.382 L890 884.29 Z" class="cls-3"/>
+      <path d="M805.224 652.8 L274.776 648.016 L545.311 805.575 Z" class="cls-4"/>
+      <path d="M190 201.382" class="cls-5"/>
+      <path id="EyeL" d="M376.658 190 L485.564 190 L485.564 531.454 L376.658 531.454 Z" class="cls-6"/>
+      <path id="EyeR" d="M609.992 190 L718.897 190 L718.897 531.454 L609.992 531.454 Z" class="cls-6"/>
+      <path d="M664.444 207.091 L664.444 890" class="cls-7"/>
+      <path d="M431.111 206.248 L431.111 889.157" class="cls-7"/>
+    </g>
+  </g>
+</svg>

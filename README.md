@@ -223,3 +223,258 @@ cd server && npm install && npm start      # http://localhost:8080
 - **Barre espace** : une pression = une action (touche maintenue ignorée, 120 ms mini entre deux bascules, désactivée dans les champs de texte). Cause du bug « plus d'espace après le tempo » : le curseur de tempo gardait le focus et l'ancien code ignorait tout `<input>`, même un curseur.
 - **Démarrage/pause rapides** : un jeton (`playToken`) annule un démarrage devenu obsolète, ce qui évite un moteur audio désynchronisé.
 - **Boucle** : la composition entière se répète sans fin tant qu'on n'a pas fait pause ou stop.
+
+## Téléphone et tablette (v11b)
+
+- **Un tap pose une note, un glissement fait défiler** la grille (défilement natif du téléphone, avec inertie). Les notes se déplacent et s'allongent toujours au doigt ; le clavier à gauche joue la note touchée.
+- **Boutons d'au moins 44 px** sur écran tactile, champs de texte à 16 px (évite le zoom automatique d'iOS).
+- **Outils de grille et de zoom repliés** sur petit écran : le bouton « ⚙️ Outils » les déplie. Le choix du mode (Baby / Débutant / Expert) reste visible.
+- **Mode paysage** : le piano-roll occupe toute la hauteur de l'écran.
+- Test automatique : `test_v25.py` (émulation tactile 390×844, 360×640 et 844×390). Le défilement tactile réel et le son sur iPhone/Android sont à vérifier sur un vrai appareil.
+
+## Refonte v12 : salon, phases, préparation, sons importés
+
+- **Salon** : colonne « Modes de jeu » (BUILD UP actif, 3 autres « En préparation »), joueurs avec présence, réglages cliquables (vitesse des phases avec préréglages Rapide/Normal/Tranquille + durées personnalisées, boucle, joueurs max). Seul l'hôte modifie ; tout est synchronisé.
+- **Phases** : Salon → Idée (1 seule, non modifiable) → Vote (tu ne vois que les idées des autres, vote définitif, tirage au sort à 2 joueurs ou en égalité) → Préparation (BPM, instrument, difficulté Baby/Débutant/Expert ; valeurs par défaut si le chrono expire) → Composition BUILD UP → Révélation. Le chrono est un MAXIMUM : on avance dès que tout le monde a terminé. En ligne, le serveur décide (js/phases.js partagé).
+- **Piano-roll** plus grand ; un clic/tap = une note (maintenir ne pose plus rien de plus) ; déplacer/redimensionner conservés.
+- **Pendant la composition** : sélecteurs compacts de difficulté et d'instrument, notes conservées.
+- **Mes sons** : importés depuis la préparation (WAV/MP3/OGG, IndexedDB). La hauteur change SANS changer la vitesse (js/pitch.js : étirement WSOLA + rééchantillonnage). Qualité très bonne à ±7 demi-tons, correcte à ±12, métallique au-delà (jusqu'à +23) ; les percussions peuvent perdre un peu d'attaque (réglage « toujours l'original »).
+- L'instrument synthétique personnalisé a été retiré (les sons importés restent).
+- Tests : `cd server && npm test` (serveur, règles, phases, hauteur).
+
+## Logo animé : le groupe de touches de piano
+Le groupe est dans `index.html` (`<div class="band">`) : un personnage défini une fois (`<symbol id="key-char">`) et réutilisé 5 fois, chacun avec sa couleur (`--c`), son décalage de clignement (`--d`) et son inclinaison (`--r`). L'animation des yeux est `keyBlink` dans `css/style.css`. Les SVG sources sont dans `assets/` (`key-character-v3-hat.svg` = la version actuelle avec chapeau ; le chapeau est le `<symbol id="key-hat">`, posé pour l'instant sur le personnage du milieu seulement).
+
+## Mon personnage (couleur + chapeau)
+Bouton « 🎨 Mon personnage » sur l'accueil → page de personnalisation (8 couleurs, sans chapeau ou casquette à hélice), enregistrée dans le navigateur (`gartic-bande.avatar.v1`). Code : `js/avatar.js` (choix + dessin) et `js/avatar-ui.js` (page). Pour ajouter un chapeau : l'ajouter dans `HATS` (`js/avatar.js`) et ajouter son dessin `<symbol id="key-hat-NOM">` dans `index.html` (comme `key-hat-propeller`). Le rouge du jeu est `--red` (#d4145a) ; l'orange a été retiré.
+
+## Ajouter tes propres chapeaux (sans toucher au code)
+Dossier `hats/` : mets-y ton chapeau en SVG (canevas 1080×1080, personnage de `hats/modele-chapeau.svg` comme guide, à cacher avant l'export), puis ajoute une ligne dans `hats/hats.js` (le mode d'emploi est en commentaire dans ce fichier). Il apparaît dans « Mon personnage ».
+
+### Placer un chapeau et couper le clignement
+Dans `hats/hats.js`, une ligne de chapeau accepte `x`, `y` (décalage), `scale` (taille) et `blink: false` (pas de clignement des yeux). Plus simple : dans « Mon personnage », choisis le chapeau, ouvre « 🛠 Placer ce chapeau », règle avec les flèches et copie la ligne générée.
+
+## Personnages dans le jeu (v13)
+
+- Les anciens emojis de joueurs sont remplacés partout (salon, préparation, barre des joueurs, pistes, révélation) par le personnage choisi : couleur + chapeau.
+- En ligne, chaque joueur envoie sa couleur et son chapeau en créant/rejoignant un salon ; le serveur les vérifie et les renvoie à tous.
+- Les bots ont des personnages fixes.
+
+## Verrouillage de l'emplacement des chapeaux
+
+Dès qu'une ligne de `hats/hats.js` contient `x`, `y` ou `scale`, l'outil de réglage est **verrouillé** pour ce chapeau (🔒). Pour le régler de nouveau, supprime ces valeurs de la ligne. Une ligne sans position (ex. `wizard`) reste réglable.
+
+## Version 13 — mise à jour qualité de vie : éditeur (sélection, longueur mémorisée, survol)
+
+- **Sélection par boîte** : à la souris, maintiens le clic sur une case vide et glisse. Les notes touchées par la boîte sont sélectionnées (contour bleu). **Maj + clic** sur une note l'ajoute à la sélection (ou la retire) sans l'effacer ; **Maj + glisser** ajoute à la sélection existante. **Échap** désélectionne, **Suppr** efface les notes sélectionnées.
+- Un simple clic sur une case vide pose une note (au relâchement du bouton) ; un clic sur une note l'enlève toujours.
+- `GB.ui.getSelection()` donne `{ trackId, noteIds }` : base prévue pour un futur copier-coller.
+- **Longueur mémorisée** : quand tu allonges ou raccourcis une note, les prochaines notes posées sur cette piste prennent la même longueur.
+- **Survol** : la case qui s'allume a la taille de la grille choisie (temps, ½, ¼…), pas celle du quart de temps.
+
+### Copier-coller de notes (v13.2)
+
+Sélectionne des notes (boîte ou Maj + clic), **Ctrl + C** pour les mémoriser, puis place la souris sur la grille et **Ctrl + V** : les notes sont collées **identiques** (même hauteur, même durée, même voyelle) ; seule leur position horizontale change : la première (la plus à gauche) tombe sous la souris (alignée sur la grille, Alt = libre) et les autres gardent leur écart de temps. La hauteur de la souris ne compte pas. Les notes collées deviennent la sélection (tu peux recoller ailleurs). Une note qui n'a pas de place (case occupée, hors de la grille, ligne « hors mode ») est ignorée. La mémoire de copie sert aussi d'une piste à l'autre. (Cmd au lieu de Ctrl sur Mac.)
+
+
+## Version 14 — Mes instruments (synthé personnalisé)
+
+Le créateur d'instruments est de retour, avec beaucoup plus de liberté (fichiers : `js/synth.js`, `js/synth-ui.js`, moteur `custom` dans `js/audio.js`).
+
+- **Où le trouver** : page de préparation (« 🎛 Créer mon instrument ») et sélecteur d'instrument de l'éditeur (« 🎛 Créer / modifier mes instruments… »). Sur la carte d'un de tes instruments, ✏️ le modifie.
+- **Son de base** : sinus, triangle, carré, scie ou **forme dessinée** (16 barres d'harmoniques à tirer à la souris/au doigt, avec des modèles : orgue, nasal, cloche, hasard).
+- **Deuxième onde** (forme, quantité, octave, désaccord) et **voix épaisses** (jusqu'à 5 ondes désaccordées).
+- **Enveloppe complète** (attaque, déclin, tenue, relâchement) et **filtre** (grave, aigu, bande) avec coupure, résonance et balayage « wah ».
+- **Mouvement** : vibrato et trémolo (profondeur + vitesse). **Effets** : chorus, distorsion, écho, réverbération.
+- 🎲 « Au hasard », 📄 « Dupliquer », 🗑 « Supprimer ». Jusqu'à 24 instruments par navigateur (enregistrés dans le navigateur).
+- **En ligne** : l'instrument voyage avec les contributions ; les autres joueurs l'entendent et ne l'ajoutent pas à leur liste. Son identifiant est calculé à partir de ses réglages (modifier un instrument en crée donc une nouvelle version ; les couches déjà faites gardent leur son). Le **serveur vérifie** que l'identifiant correspond bien aux réglages et renvoie la version nettoyée.
+- Pour ajouter un réglage : une ligne dans `FIELDS` de `js/synth.js` + son usage dans `CustomVoice` (`js/audio.js`). L'éditeur se met à jour tout seul.
+
+## Éditeur v14.1 : glisser une sélection
+
+Quand plusieurs notes sont sélectionnées (boîte ou Maj + clic), **attraper l'une d'elles et glisser déplace toute la sélection** :
+- la note attrapée mène, les autres gardent le même écart de temps et de hauteur ;
+- la sélection ne sort jamais de la grille (elle s'arrête au bord) et ne se pose jamais sur une note qui n'en fait pas partie (rien ne bouge si ça touche) ;
+- un repère en pointillés marque l'ancienne place de chaque note ; si le geste est interrompu, tout revient en place ;
+- un simple clic sur une note sélectionnée ne l'efface plus (un clic dans le vide défait la sélection) ;
+- sans sélection, une note seule se glisse comme avant. L'allongement par la poignée reste pour une note à la fois.
+
+**v14.2** : en mode Baby/Débutant, la sélection se déplace **de lignes du mode en lignes du mode** (les notes ne tombent plus sur des lignes « hors mode » en descendant ou en montant). Les notes déjà hors mode gardent leur écart brut.
+
+## v14.3 : aperçu avant de contribuer + notes fantômes
+
+- **Aperçu** : au début de ta composition, quand la chanson contient déjà des couches (round 2 et suivants), la vue « couches » s'affiche à la place du piano-roll avec « 👀 Voici ce qui existe déjà », un bouton **▶ Écouter / ⏸ Pause** et un bouton **✏️ Contribuer** qui ouvre le piano-roll. C'est de l'affichage seulement : pas de nouvelle phase, aucun chrono ni message réseau en plus (le chrono du round tourne comme avant). Round 1 : pas d'aperçu.
+- **Notes fantômes** : dans le piano-roll, les notes des autres couches apparaissent en transparence derrière tes notes (même famille de lignes : mélodie avec mélodie, batterie avec batterie ; la voix micro n'en a pas). Elles ne se cliquent pas, ne se déplacent pas, ne se copient pas et ne sont jamais enregistrées dans ta couche. Seulement en partie (pas en studio solo).
+
+## v15 : nouvel accueil (pack direction artistique)
+
+- **Mise en page** : à gauche « TON PERSO » (ton personnage avec sa couleur et son chapeau, immobile, sans cadre, sur le violet) + bouton **Skin** ; à droite 3 cartes : **Jouer en ligne**, **Éditeur solo**, **Inventaire**. « Tester une partie » devient un lien sous les cartes ; la démo et la note restent en bas.
+- **Inventaire** ouvre l'écran des chapeaux et ajoute deux boutons : **🎧 Mes sons** et **🎛 Mes instruments** (mêmes fenêtres que dans l'éditeur).
+- **Logos animés** (survol ou focus clavier de la carte) : `css/home-logos.css` (classes `.cg` éditeur, `.og` en ligne, `.ig` inventaire ; les `id` `cgc`, `og-*`, `ig-*` sont uniques). Tout s'arrête avec « réduire les animations ».
+- **Corrections par rapport au pack** : Inventaire — le changement de couleur se fait pile à l'atterrissage du chapeau (plus de passage par un marron-gris), le perso est un peu plus petit/bas (le chapeau sorcier ne frôle plus l'anneau), l'hélice touche la tête ; En ligne — l'éclat est plus grand (il était caché derrière les mains) et les confettis, plus gros, volent plus loin.
+
+## v15.1 — Accueil sans scroll
+- Les trois logos de cartes ont maintenant exactement la même taille, et les trois cartes la même hauteur (variables CSS `--logo-s` et `--card-h`, calculées selon la hauteur de l'écran).
+- Tout l'accueil (logo, cartes, « Ton perso », liens) tient dans l'écran sans scroll sur ordinateur (testé de 1024×700 à 1920×1080) et sur un téléphone 390×844. Sur un très petit écran (360×640) il reste un peu de scroll.
+
+## v15.2 — « Ton perso » plus grand
+- Le perso (colonne de gauche) grandit avec la hauteur de l'écran (jusqu'à ~17 rem) ; la colonne et les cartes prennent plus de largeur (1180 px max). Cartes et logos grandissent aussi sur grand écran.
+- Sur téléphone : perso plus gros, la phrase d'accroche est masquée pour garder l'accueil sans scroll.
+
+## v16 — Skin et Casier séparés, fond fixe, plus d'ajustement de chapeau
+- **Fond** : le dégradé est maintenant sur `<html>` en `fixed` (avant, il était sur `<body>` et s'arrêtait à la hauteur de la fenêtre quand on défilait). Il couvre tout l'écran au scroll et au redimensionnement.
+- **Ajustement de chapeau supprimé** : panneau « Placer ce chapeau », boutons, `GB.avatar.tune()`, `configLine()`, le verrou et le CSS associé. Les chapeaux (hats/hats.js) et leur affichage restent ; les réglages x / y / scale / blink se font dans `hats/hats.js`.
+- **Skin** (bouton de l'accueil) : apparence seulement — aperçu, couleur, chapeau. Données : `GB.avatar` (`gartic-bande.avatar.v1`).
+- **Casier** (carte de l'accueil, ex-« Inventaire », `js/locker.js` + `js/locker-ui.js`) : A. sons importés et instruments créés ; B. sons du jeu (par packs) ; C. chapeaux possédés (lecture seule). Chaque son est **Équipé** ou **Dans le casier**. Seuls les sons équipés sont proposés dans l'éditeur et la préparation de partie ; un son déséquipé déjà utilisé par une piste reste joué (et affiché pour cette piste). On ne peut pas déséquiper le dernier son.
+- **Pas de doublon de données** : « possédé » vient des registres existants (instruments, sons importés, synthés, chapeaux). Le casier ne stocke que la liste des sons déséquipés (`gartic-bande.locker.v1`) : tout est équipé par défaut, donc rien ne change pour les joueurs existants.
+- **Prêt pour la suite** : packs = ajouter un objet à `GB.SOUND_PACKS` ; presets = `{ skin: GB.avatar.get(), sounds: GB.locker.exportEquipment() }` avec `GB.locker.applyEquipment()` déjà là. Pas d'achat ni de preset implémentés.
+
+## v17 — Outils d'édition, actions sous la sélection, Pause mobile
+- **Barre d'outils** au-dessus du piano-roll (toujours visible, aussi sur téléphone) : **✏️ Crayon** (par défaut) et **🖱️ Sélection**, état actif visible. Les raccourcis clavier (Suppr, Échap, Ctrl + C / V, Maj + clic, Espace, Alt…) et la zone tracée à la souris avec le Crayon fonctionnent comme avant.
+- **Crayon** : comme avant (clic = note, poignée de droite = durée). Au toucher, la poignée a une zone de toucher plus large et un 2e doigt ne déclenche rien.
+- **Sélection** (souris et doigt) : toucher une note la sélectionne (au doigt, chaque tap ajoute / retire une note) ; tracer une zone choisit les notes touchées ; glisser une note choisie déplace tout le groupe (code de v14.1/14.2) ; un tap dans le vide défait la sélection sans poser de note. Les notes choisies ont un contour bleu.
+- **Barre d'actions** sous la sélection (au-dessus si le bas manque de place, toujours dans la zone visible, elle suit le déplacement, le défilement et le zoom) : **🗑️ Supprimer** et **📋 Copier / Coller**. Copier / Coller crée de **nouvelles** notes juste après la dernière note de la sélection, sur la grille choisie ; si la place est prise, le groupe glisse d'un pas de grille jusqu'à tenir sans rien écraser ni raccourcir. Les copies sont sélectionnées, les originales ne bougent pas.
+- **Pause mobile** : bouton ⏸ Pause / ▶ Reprendre, affiché seulement si l'appareil est tactile (`(hover: none) and (pointer: coarse)`, pas la largeur de fenêtre). Il appelle la même fonction que le bouton Lecture et la barre espace (la position n'est pas remise à zéro).
+- **Limite connue** : avec l'outil Sélection, la grille ne défile plus au doigt (le glissement trace la zone) ; repasse au Crayon, utilise la barre de défilement ou « Suivre » pour te déplacer.
+- **Speech to Note** : NON implémenté. Étude dans `SPEECH-TO-NOTE.md`.
+
+## v17.1 — Vue horizontale (téléphone en paysage)
+S'applique quand l'écran est en paysage et fait au plus 520 px de haut (`@media (orientation: landscape) and (max-height: 520px)`).
+- **Éditeur** : toute la fenêtre est utilisée, la page ne défile plus. Une seule ligne d'outils (Crayon / Sélection, modes, 🧹, ⚙️ Zoom) ; la barre du haut est compacte (🏠 et ↺ en icônes). Le panneau des pistes est replié au départ (☰ pour l'ouvrir). La grille occupe environ 60 à 65 % de la hauteur (avant : 150 px, après deux écrans de défilement). Le bouton Pause mobile est masqué dans cette vue, car le bouton Lecture / Pause de la barre du haut est toujours visible.
+- **Accueil** : deux colonnes, logo et « Ton perso » à gauche, les trois cartes à droite, sans défilement.
+- Cette vue s'applique aussi à une fenêtre d'ordinateur très basse (≤ 520 px de haut).
+
+## v18 — Version mobile paysage fidèle au concept + Annuler / Rétablir
+- **Accueil (paysage)** : en haut à gauche la petite marque (un personnage + « GARTIC BANDE » sur une ligne), dessous « Ton perso » en grand avec le bouton Skin ; à droite les trois cartes. Sans défilement.
+- **Éditeur (paysage)** : barre du haut sur une ligne, la grille prend toute la largeur et toute la hauteur, et une **palette verticale à droite** (2 colonnes) : ✏️ Crayon · 🖱️ Sélection · 📋 Copier / Coller · 🗑️ Supprimer · 🔍 Grille et zoom · 🎼 Instrument / difficulté / effacer · ↶ Annuler · ↷ Rétablir (+ ✅ Prêt en partie). 🔍 et 🎼 ouvrent un panneau par-dessus la grille (un seul à la fois). Copier / Coller et Supprimer ne s'activent que s'il y a une sélection.
+- **Annuler / Rétablir** (nouveau, aussi dans la barre d'outils portrait / ordinateur, et Ctrl + Z / Ctrl + Maj + Z ou Ctrl + Y) : concerne les notes de la piste affichée (poser, effacer, déplacer, allonger, copier, supprimer, effacer tout). 60 pas par piste ; une nouvelle action vide « Rétablir » ; changer d'instrument ou recommencer repart d'un historique vide. Ne concerne pas les enregistrements de voix ni les réglages.
+- Les cases « ? » du concept sont remplies avec les actions existantes (Copier / Coller, Supprimer, Grille et zoom, Instrument / difficulté).
+
+## v19 : plus aucun émoji, plus de mode vertical
+
+- **Icônes** : tous les émojis de l'interface sont remplacés par des icônes SVG au même style (`js/icons.js`, `GB.icons.svg/el/set`). Dans `index.html` : `<i class="ic" data-i="play"></i>`. Pour ajouter une icône : ajouter une ligne dans l'objet `P` de `js/icons.js`.
+- Les icônes d'instruments (`icon` dans `GB.INSTRUMENTS`, choix « Icône » de l'éditeur d'instrument, packs du casier, modes de jeu) sont maintenant des **noms d'icônes** (`'piano'`, `'drum'`…).
+- **Anciens instruments créés** : leur ancien émoji est converti automatiquement en icône, et leur identifiant ne change pas (l'empreinte utilise toujours l'ancien émoji, voir `LEGACY_ICONS` dans `js/synth.js`).
+- Gardés volontairement : ♯ et ♭ (notation musicale), ▲ ▼ (octave), « · » et « − + ». Ce ne sont pas des émojis.
+- Les avatars-émojis des personnages (`avatar` dans `bots.js` / `server/rooms.js`) sont vidés : l'affichage utilisait déjà le skin.
+- **Mode vertical retiré** : sur téléphone (écran tactile, largeur ≤ 820 px) tenu à la verticale, un écran « Tourne ton téléphone » couvre le jeu. Le paysage reste inchangé. Les fenêtres étroites d'ordinateur et les tablettes larges ne sont pas concernées. Le bouton Pause « mobile » (réservé au vertical) est masqué en paysage.
+
+## v20 : tes icônes d'instruments + chapeau Piano Bros
+
+- **Icônes d'instruments en couleur** : tes SVG sont dans `assets/instruments/` et intégrés au jeu (`js/icons-instruments.js`, généré depuis ces fichiers ; noms `ins-piano`, `ins-synth`, `ins-bass`, `ins-lead`, `ins-drums`, `ins-trumpet`, `ins-flute`, `ins-vox`, `ins-mic`, `ins-custom`, `ins-sample`). Le dégradé de `flute.svg` est remplacé par un aplat (un dégradé « par id » peut disparaître quand l'icône est dans une zone cachée).
+- Les instruments créés par le joueur (icône par défaut) utilisent `custom.svg` ; les autres icônes du choix « Icône » restent des pictos simples. Les sons importés utilisent `sample.svg`.
+- **Chapeau « Piano Bros »** (`hats/hats.js`, id `bros`) : la casquette et son bord prennent la couleur du skin ; le disque blanc et les contours restent fixes. Il est dessiné « en ligne » (option `markup` avec `fill="var(--c)"`) ; `hats/bros.svg` garde la version d'origine (orange).
+
+## v21 : barre d'outils unique, outil BPM, Smart BPM, pincement
+
+- **Une seule barre d'outils** (`#dock`, `js/dock.js`) pour tous les appareils : Crayon, Sélection, Copier/Coller et Supprimer (visibles quand une sélection existe), Annuler/Rétablir, Lecture (tactile seulement), BPM, Smart BPM, Précision de grille, Zoom, Octaves, Instrument/Difficulté, Épingle.
+  - Écran tactile (détecté par `pointer: coarse` / `hover: none` ou par un vrai toucher, pas par la largeur) : barre **verticale** à droite, grosses cibles.
+  - Souris : barre **horizontale** en bas, infobulles. Raccourcis clavier inchangés.
+- **Épingle** : barre désépinglée = elle se range, la grille prend la place, une petite poignée la ramène. Elle ne réapparaît pas toute seule. Le choix est gardé dans `localStorage` (`gartic-bande.dock.v1`).
+- **Menus** (BPM, grille, zoom, octaves, instrument) : s'ouvrent à côté du bouton sans quitter le piano-roll ; Échap ou un toucher ailleurs les ferme.
+- **Outil BPM (avec Smart BPM dedans)** : −5/−1/+1/+5, saisie numérique (60–180). Les notes gardent leurs positions musicales ; la lecture, la boucle et la barre d'espace continuent de marcher. Verrouillé en partie (le tempo est fixé à la préparation).
+- **Smart BPM** : fenêtre dédiée (plein écran sur téléphone). On tape le rythme, le calcul (`js/bpm-tap.js`, testé dans `server/test-bpm.js`) utilise les intervalles entre appuis (horloge monotone `event.timeStamp`), ignore les doubles taps et les écarts aberrants, propose ×2 / ÷2 seulement si plausible. « Utiliser ce BPM » applique ; fermer ne change rien. Tout est local (pas de micro, pas de serveur).
+- **Précision de grille** 1/4, 1/8, 1/16, 1/32 : ne déplace aucune note.
+- **Octaves** : change seulement la plage visible, ne transpose rien.
+- **Pincement à deux doigts** sur la grille (zoom avec ancrage, bornes min/max), sans poser ni déplacer de note.
+- Le message « Rotation » ne s'affiche plus que sur les petits téléphones en portrait (≤ 600 px) ; les tablettes en portrait ont la barre verticale.
+
+- v21.2 : icônes trompette, basse et piano mises à jour ; nouveaux chapeaux Chapeau bizarre, Casque audio (avec calque arrière `backFile`) et Hollow.
+
+## v22 : Speech to Note (chanter, les notes apparaissent en direct)
+
+Outil **micro** (bouton « Voix » de la barre d'outils). Fichiers : `js/stn-core.js` (calcul, testé par `server/test-stn.js`), `js/stn.js` (micro, capture, calibrages, fenêtre).
+
+**Comment ça marche**
+1. Clic sur l'outil : le navigateur demande le micro (jamais avant). Refus ou micro absent : message clair, retour à l'éditeur.
+2. Fenêtre de préparation : durée (10–60 s), compte à rebours (aucun/3/5 s), alignement sur la grille (facultatif, avec choix de la précision : celle de l'éditeur, 1/4, 1/8, 1/16 ou 1/32 ; deux attaques dans la même case passent à la case suivante, jamais fusionnées), compensation de latence, décalage d'octave (explicite), calibrages.
+3. « Démarrer » : compte à rebours (le bruit de fond est mesuré pour régler le seuil de voix), puis la lecture démarre depuis la barre de lecture et l'analyse commence au même instant. Seul un bandeau reste affiché (temps restant, niveau, hauteur détectée, nombre de notes, Arrêter / Annuler).
+4. Les notes sont de **vraies notes** de la piste (même système que le crayon) : elles s'allongent pendant que tu tiens la note, se terminent quand tu t'arrêtes ou changes réellement de hauteur, et restent éditables (déplacer, redimensionner, supprimer, copier). Toute la session = un seul « Annuler ».
+5. La capture s'arrête toute seule à la fin du temps **ou à la fin de la boucle** (une seule passe : pas de superposition de tours). Le BPM n'est jamais modifié.
+
+**Détection** : YIN (autocorrélation normalisée, interpolation parabolique), maintenue sans bibliothèque. Une seule voix (monophonique). Stabilisation : médiane sur 3 trames, seuil de confiance, 25 ms (2 trames) pour déclencher une note, 70 ms (150 ms pour un saut d'octave) pour accepter un vrai changement, notes < 60 ms jetées. **Même note répétée** (« ta ta ta ») : un creux de volume (sous 60 % du niveau de la note) suivi d'une remontée = nouvelle note, même sans changement de hauteur. Une note déjà commencée accepte des trames un peu moins nettes (confiance 0,55 au lieu de 0,72) pour ne pas être coupée. Tous ces seuils sont en tête de `stn-core.js` (`DEFAULTS`) ; la durée, le compte à rebours, etc. en tête de `stn.js` (`SETTINGS`).
+
+**Calibrage du micro** (par micro, gardé dans `localStorage`, clé `gartic-bande.stn.v1`) : 10 repères, les 2 premiers pour l'échauffement ; méthode sonore (clics) ou visuelle (boule vers une ligne). Médiane des décalages après retrait des mesures aberrantes ; fiabilité bonne/moyenne/faible selon la cohérence ; avertissement si les sons collent aux clics (écho des haut-parleurs). C'est un décalage GLOBAL (réaction humaine comprise), borné à ±400 ms, désactivable.
+**Calibrage vocal** : 2 notes de référence (3e sur demande), plage grave/moyenne/aiguë. Affiche référence, note détectée, écart en cents, fiabilité. Un décalage d'octave n'est proposé que s'il est identique sur au moins 2 notes, et seulement comme option à activer.
+
+**Limites connues** : une voix à la fois ; erreurs d'octave possibles (sons soufflés, très graves) ; au-delà d'environ Do♯6 ou sous Do♯2 rien n'est suivi ; la musique du jeu dans le micro trompe l'analyse (utiliser un casque) ; la précision temporelle est de l'ordre de 30–50 ms ; les notes hors des 36 lignes (Do3–Si5) sont ramenées d'une ou plusieurs octaves ; en mode Baby/Débutant la note est posée sur la ligne autorisée la plus proche ; une note ne peut pas être posée sur une case déjà occupée (elle est ignorée et comptée dans le message de fin).
+
+## v23 : moteur Speech to Note corrigé (attaques, notes répétées, diagnostic)
+
+**Causes trouvées (dans le code v22)**
+- Une nouvelle note n'était détectée qu'à partir des *trames de hauteur* (25 ms) + un creux de volume : l'instant réel de l'attaque était perdu (notes décalées d'environ 50 ms), et des « ta » rapides (170 ms) fusionnaient.
+- La hauteur était figée sur les 2 premières trames : un « scoop » d'attaque (début un peu trop bas) créait **deux** notes.
+- Aucune raison n'était gardée pour savoir pourquoi une note naissait ou finissait.
+
+**Ce qui a changé** (`js/stn-core.js`, `js/stn.js`)
+- Nouveau détecteur d'attaques (`createAttackDetector`) sur des blocs de 256 échantillons (≈ 5 ms) : montée d'énergie (dB) + flux spectral + éclat de hautes fréquences (le « t »). Un creux trop court (< 24 ms) n'est pas un silence entre deux notes ; un crescendo ou un vibrato ne déclenche rien.
+- Une attaque ne crée une note que si une **hauteur fiable** suit (la voyelle). Un bruit de consonne ou de bouche seul est ignoré (`attack-dropped`). La note commence à l'instant de l'attaque.
+- Petite correction de hauteur au début d'une note (≤ 2 demi-tons, 140 ms) : la **même** note est déplacée, pas de seconde note.
+- Fin de note : silence continu (55 ms), ou son sans hauteur (souffle) ; jamais sur une simple variation de volume ni sur un vibrato.
+- Chaque début/fin a une raison (`attaque`, `hauteur`, `changement de hauteur`, `silence`, `nouvelle attaque`…).
+- Réglages dans la fenêtre « Voix » : **Sensibilité aux attaques** (basse / normale / haute) et **Écart minimal entre deux notes** (60 à 200 ms).
+- **Diagnostic** (case dans la fenêtre « Voix », ou `?stndebug=1` dans l'adresse) : fréquence, MIDI, note stabilisée, niveau en dBFS, confiance, attaques, débuts/fins de notes avec la raison. Désactivé par défaut.
+- Les notes déjà présentes ne sont jamais modifiées : la session ne touche que ses propres notes (identifiants stables), « Annuler la session » ne supprime que celles-là.
+
+**Tests**
+- `node server/test-stn.js` : 68 tests (signaux synthétiques : note tenue, ta ta ta ta, la la la la, montée, descente, alternance rapide, vibrato, silence, bruit de bouche, durées variées, conversions Hz→MIDI→ligne).
+- `test_v38_stn` (navigateur, micro simulé par fichiers WAV) : notes préexistantes intactes, annulation, ta/la répétés, montée/descente, bruit de bouche, alignement note ↔ nom de note avec zoom X/Y et octave.
+
+**Limites restantes (à valider avec un vrai micro)**
+- Tout a été testé avec des sons synthétiques : une vraie voix, un vrai micro et le bruit d'une vraie pièce peuvent demander d'ajuster la sensibilité.
+- Des « la la » très liés (sans aucun creux de volume) restent pris pour une seule note ; sur nos « la » synthétiques, 11 attaques sur 13 environ sont retrouvées.
+- Un changement de hauteur très rapide (note de 130 ms) est découpé avec un léger retard (≈ 70 ms).
+- Une coupure de moins de 24 ms dans une note ne la sépare pas.
+
+### v23.1 : réglages après test sur un vrai fredonnement
+- La hauteur de référence d'une note est maintenant la moyenne suivie de la voix (et non l'entier arrondi) : une dérive de ±0,8 demi-ton ne coupe plus la note (seuil de changement 0,85 demi-ton).
+- Une mesure peu sûre (confiance < 0,85) ne peut plus déclencher seule un changement de hauteur ; après une attaque, les hauteurs doivent s'accorder entre elles (évite les fausses notes d'octave).
+- Temps laissé à la voyelle après une attaque : 220 ms (fredonner « mm » démarre doucement) ; fenêtre de correction de hauteur en début de note : 220 ms.
+- Erreur d'harmonique corrigée (`detectPitch`) : une voix grave dont le 5e harmonique domine (mesuré sur un enregistrement réel, voix ≈ 123 Hz lue à ≈ 615 Hz) est maintenant ramenée à sa fondamentale. Réservé aux creux médiocres, pour ne pas abaisser les notes pures. Test ajouté dans `test-stn.js` (69 tests).
+
+## v24 (étape 1 du mode Phone) : registre des modes de jeu
+
+Aucun changement visible pour les joueurs : BUILD UP reste le mode par défaut et se joue exactement comme avant.
+
+- Nouveau `js/modes.js` : registre unique des modes, partagé par le navigateur et le serveur. Chaque mode déclare son nom, son icône, s'il est jouable (`available`), s'il se joue en ligne et/ou hors ligne, son nombre de joueurs et la durée recommandée d'un round.
+- Le serveur n'accepte que les modes jouables du registre (`server/rooms.js`) ; le salon (`js/lobby-ui.js`) affiche la liste du registre. Phone y apparaît déjà, « En préparation » (3 à 8 joueurs, en ligne seulement, rounds de 5 min).
+- Tests : `node server/test-modes.js` (15 tests) et `test_v39_modes` (navigateur : liste des modes, Phone désactivé et sans effet au clic).
+
+Prochaines étapes prévues : module partagé micro + calibration et roue dentée sur l'accueil, stockage des voix sur le serveur, maillons multipistes et rounds de Phone, interface, tests.
+
+## v25 (étape 2 du mode Phone) : réglages du micro partagés + roue dentée Paramètres
+
+- **`js/mic-prefs.js`** : la compensation de latence de chaque micro est maintenant gérée à un seul endroit (clé `gartic-bande.mic.v1`, dans le navigateur du joueur). Speech to Note l'utilise, ainsi que le nouveau panneau et, plus tard, l'enregistrement de la voix de Phone. Les calibrages déjà faits avec Speech to Note sont repris automatiquement (l'ancienne clé n'est pas effacée).
+- **Roue dentée sur l'accueil** (en haut à droite) : panneau Paramètres avec l'état du micro, la liste des micros connus (nom, décalage, méthode, fiabilité, date), l'interrupteur de compensation et un bouton « Oublier ».
+- **Pastille rouge sur la roue** tant qu'aucun micro n'a été vraiment calibré. La vérification se fait sans demander l'accès au micro. Un réglage saisi à la main ne compte pas comme un calibrage.
+- **« Calibrer mon micro »** ouvre la fenêtre de Speech to Note en mode « calibrage seul » (sans piste ni bouton Démarrer), puis les Paramètres se rouvrent à jour.
+- Correction : une saisie manuelle identique à la valeur déjà enregistrée ne transforme plus un calibrage mesuré en réglage « manuel » ; la fenêtre de Speech to Note se met à jour quand le calibrage change ailleurs.
+- Tests : `node server/test-micprefs.js` (18) et `test_v40_settings` (navigateur, 23 : roue, pastille, calibrage seul, persistance, migration, téléphone en paysage).
+
+## v26 — Écran de calibrage simple, roue crantée, instrument micro refait
+
+- **Calibrage audio simple** (écran à part, pas celui du Speech to Note) : Accueil → roue crantée → « Calibrer mon micro ». 10 flashs + clics, le résultat est enregistré automatiquement (ou « À vérifier » si le micro capte le haut-parleur).
+- Icône de la roue remplacée par un vrai engrenage (8 dents).
+- **Instrument micro** : le bouton principal est « Enregistrer sur la boucle ». Pendant l'enregistrement, le curseur de la timeline avance et le bloc rouge de ta voix se dessine en direct (barres blanches = volume). À la réécoute, le curseur suit aussi l'extrait.
+- Un bandeau jaune rappelle de calibrer le micro tant que ce n'est pas fait.
+- À valider sur vrais appareils : calibrage réel, synchro voix/boucle, Safari/iPhone.
+
+## v27 — Mode PHONE (téléphone arabe musical, en ligne seulement)
+
+**Comment ça se joue** : une chaîne par joueur. Round 1 : écrire un titre de chanson connue → composer au piano-roll **sans chanter** (plusieurs pistes) → chanter a cappella (enregistré sur la boucle, plusieurs pistes) → recopier la voix au piano-roll (Speech to Note permis) → … en alternant → dernier round : **deviner la chanson**. Chacun ne voit que le maillon précédent de SA chaîne ; tout se révèle à la fin, maillon après maillon (l'hôte fait défiler).
+
+- Dans le salon : choisir « Phone » (3 à 8 joueurs). Réglages : nombre de rounds (3 minimum, « Tous » = autant que de joueurs), durée de composition (5 min conseillées) et de chant (2 min par défaut). Écrire et deviner : 60 s. Dès que tout le monde est prêt, on passe à la suite.
+- Les voix partent au serveur en HTTP (WAV, même route que les sons importés), restent **en mémoire** jusqu'à « Terminer la partie » (ou la disparition du salon), puis sont effacées.
+- Joueur absent ou trop lent : maillon vide ; le suivant est prévenu (« maillon manquant ») et peut choisir librement.
+- Instrument micro : on n'enregistre plus que « sur la boucle », avec compte à rebours 3-2-1.
+- Fichiers : `js/phone.js` (règles partagées), `server/phone-room.js` (serveur), `js/phone-ui.js` (écrans). Tests : `server/test-phone.js` (74).
+- À valider sur de vrais appareils : plusieurs téléphones/ordinateurs réels, micro réel (calibrage), casque, Safari/iPhone, réseau lent (envoi des voix).
+
+## v28 — Phone : voix → notes → voix
+
+- Déroulement : **écrire une chanson / idée / thème** → **chanter a cappella dessus** (idée affichée en énorme au-dessus de l'éditeur) → **recopier la voix au piano-roll** → **chanter de mémoire** (on écoute d'abord les notes miniatures, puis plus moyen de les revoir) → … → **deviner**.
+- Consigne géante au-dessus du piano-roll ; compte à rebours 3-2-1 géant avec bips (aigu au départ).
+- Révélation façon SMS : bulle « … » puis message, notes/ondes miniatures qui s'allument pendant la lecture.
+- Calibrage : case « J'ai un casque » ; sans casque, une boule rebondit et il faut dire « ta » quand elle touche la ligne (aucun son joué).
+- Voix enregistrées : 32 kHz, rééchantillonnage sans repliement, niveau normalisé (qualité à écouter sur vrai appareil).
+- Tests : `cd server && npm test`.

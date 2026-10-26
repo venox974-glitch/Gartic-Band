@@ -1,0 +1,323 @@
+/* Logos animés des cartes de l'accueil (pack direction artistique). Classes préfixées : .cg (éditeur), .og (en ligne), .ig (inventaire).
+   L'animation démarre au survol / focus de la carte (.ed / .po / .inv) ; ajouter la classe « on » sur le <svg> la force. */
+
+.cg{--n1:#ffd23f;--n2:#35b8ff;--n3:#27e0a8;--cur:#ff4f9a}
+.cg-orange{--cur:#f15a24}
+.cg .cur{transform:translate(367px,197px) rotate(0deg) scale(3.4);transition:transform .4s cubic-bezier(.3,0,.2,1)}
+.cg .cp{fill:var(--cur);stroke:#20123f;stroke-width:10.6;stroke-linejoin:round;transition:stroke-width .4s cubic-bezier(.3,0,.2,1)}
+.cg .p{transform:scale(0);transition:transform .25s ease-in}
+:is(.cg.on,.cg:hover,.ed:hover .cg,.ed:focus-visible .cg) .cur{animation:cgIn .6s cubic-bezier(.3,0,.2,1) forwards,cgCur 5s linear .6s infinite}
+:is(.cg.on,.cg:hover,.ed:hover .cg,.ed:focus-visible .cg) .cp{animation:cgInSw .6s cubic-bezier(.3,0,.2,1) forwards,cgSw 5s linear .6s infinite}
+:is(.cg.on,.cg:hover,.ed:hover .cg,.ed:focus-visible .cg) .p1{animation:cgP1 5s linear .6s infinite}
+:is(.cg.on,.cg:hover,.ed:hover .cg,.ed:focus-visible .cg) .p2{animation:cgP2 5s linear .6s infinite}
+:is(.cg.on,.cg:hover,.ed:hover .cg,.ed:focus-visible .cg) .p3{animation:cgP3 5s linear .6s infinite}
+@keyframes cgIn{from{transform:translate(367px,197px) rotate(0deg) scale(3.4)}to{transform:translate(140px,495px) rotate(0deg) scale(1)}}
+@keyframes cgInSw{from{stroke-width:10.6}to{stroke-width:36}}
+@keyframes cgCur{
+0%{transform:translate(140px,495px) rotate(0deg) scale(1);animation-timing-function:ease-in-out}
+5%{transform:translate(140px,495px) rotate(0deg) scale(.8);animation-timing-function:ease-in-out}
+8%{transform:translate(140px,495px) rotate(0deg) scale(1)}
+10%{transform:translate(140px,495px) rotate(0deg) scale(1);animation-timing-function:ease-in}
+20%{transform:translate(310px,325px) rotate(-6deg) scale(1);animation-timing-function:ease-out}
+28%{transform:translate(480px,155px) rotate(0deg) scale(1);animation-timing-function:ease-in-out}
+33%{transform:translate(480px,155px) rotate(0deg) scale(.8);animation-timing-function:ease-in-out}
+36%{transform:translate(480px,155px) rotate(0deg) scale(1)}
+38%{transform:translate(480px,155px) rotate(0deg) scale(1);animation-timing-function:ease-in}
+48%{transform:translate(650px,325px) rotate(6deg) scale(1);animation-timing-function:ease-out}
+56%{transform:translate(820px,495px) rotate(0deg) scale(1);animation-timing-function:ease-in-out}
+61%{transform:translate(820px,495px) rotate(0deg) scale(.8);animation-timing-function:ease-in-out}
+64%{transform:translate(820px,495px) rotate(0deg) scale(1)}
+68%{transform:translate(820px,495px) rotate(0deg) scale(1);animation-timing-function:cubic-bezier(.3,0,.2,1)}
+76%,86%{transform:translate(700px,680px) rotate(0deg) scale(1);animation-timing-function:cubic-bezier(.3,0,.2,1)}
+100%{transform:translate(140px,495px) rotate(0deg) scale(1)}
+}
+@keyframes cgSw{
+0%{stroke-width:36;animation-timing-function:ease-in-out}
+5%{stroke-width:45;animation-timing-function:ease-in-out}
+8%,30%{stroke-width:36;animation-timing-function:ease-in-out}
+33%{stroke-width:45;animation-timing-function:ease-in-out}
+36%,58%{stroke-width:36;animation-timing-function:ease-in-out}
+61%{stroke-width:45;animation-timing-function:ease-in-out}
+64%,100%{stroke-width:36}
+}
+@keyframes cgP1{
+0%,5%{transform:scale(0);animation-timing-function:cubic-bezier(.34,1.56,.64,1)}
+10%,70%{transform:scale(1);animation-timing-function:ease-in-out}
+72.5%{transform:scale(1.14);animation-timing-function:ease-in-out}
+75%,84%{transform:scale(1);animation-timing-function:cubic-bezier(.6,-.28,.74,.05)}
+90%,100%{transform:scale(0)}
+}
+@keyframes cgP2{
+0%,33%{transform:scale(0);animation-timing-function:cubic-bezier(.34,1.56,.64,1)}
+38%,73%{transform:scale(1);animation-timing-function:ease-in-out}
+75.5%{transform:scale(1.14);animation-timing-function:ease-in-out}
+78%,86%{transform:scale(1);animation-timing-function:cubic-bezier(.6,-.28,.74,.05)}
+92%,100%{transform:scale(0)}
+}
+@keyframes cgP3{
+0%,61%{transform:scale(0);animation-timing-function:cubic-bezier(.34,1.56,.64,1)}
+66%,76%{transform:scale(1);animation-timing-function:ease-in-out}
+78.5%{transform:scale(1.14);animation-timing-function:ease-in-out}
+81%,88%{transform:scale(1);animation-timing-function:cubic-bezier(.6,-.28,.74,.05)}
+94%,100%{transform:scale(0)}
+}
+@media (prefers-reduced-motion:reduce){.cg .cur,.cg .cp,.cg .p{animation:none!important;transition:none}}
+
+.og .a{transform:var(--t1);transition:transform .5s cubic-bezier(.3,0,.2,1)}
+.og .fx,.og .cf{transform:translate(540px,415px) scale(0);transition:transform .2s}
+:is(.og.on,.og:hover,.po:hover .og,.po:focus-visible .og) .a{animation:ogIn .45s cubic-bezier(.34,1.56,.64,1) forwards,ogLp 2s linear .45s infinite}
+:is(.og.on,.og:hover,.po:hover .og,.po:focus-visible .og) .fx{animation:ogBurst 2s linear .45s infinite}
+:is(.og.on,.og:hover,.po:hover .og,.po:focus-visible .og) .cf{animation:ogCf 2s linear .45s infinite}
+@keyframes ogIn{from{transform:var(--t1)}to{transform:var(--t2)}}
+@keyframes ogLp{
+0%,4%{transform:var(--t2);animation-timing-function:cubic-bezier(.4,0,.2,1)}
+18%{transform:var(--t3);animation-timing-function:cubic-bezier(.7,0,1,.6)}
+22%{transform:var(--t5);animation-timing-function:ease-out}
+29%{transform:var(--t4);animation-timing-function:ease-in-out}
+62%{transform:var(--t4);animation-timing-function:cubic-bezier(.3,0,.2,1)}
+80%,100%{transform:var(--t2)}
+}
+@keyframes ogBurst{
+0%{transform:translate(540px,415px) rotate(0deg) scale(0)}
+21.4%{transform:translate(540px,415px) rotate(0deg) scale(0);animation-timing-function:cubic-bezier(.2,1.6,.4,1)}
+22%{transform:translate(540px,415px) rotate(0deg) scale(1.75);animation-timing-function:ease-in}
+31%{transform:translate(540px,415px) rotate(0deg) scale(0)}
+100%{transform:translate(540px,415px) rotate(0deg) scale(0)}
+}
+@keyframes ogCf{
+0%{transform:translate(540px,415px) scale(0)}
+21.4%{transform:translate(540px,415px) rotate(0deg) scale(0);animation-timing-function:cubic-bezier(.2,1.6,.4,1)}
+22%{transform:translate(540px,415px) rotate(0deg) scale(1);animation-timing-function:ease-out}
+36%{transform:translate(calc(540px + var(--dx)*2),calc(415px + var(--dy)*2)) rotate(260deg) scale(.3)}
+40%{transform:translate(calc(540px + var(--dx)*2.1),calc(415px + var(--dy)*2.1)) rotate(280deg) scale(0)}
+40.5%{transform:translate(540px,415px) rotate(0deg) scale(0)}
+100%{transform:translate(540px,415px) scale(0)}
+}
+@media (prefers-reduced-motion:reduce){.og .a,.og .fx,.og .cf{animation:none!important;transition:none}}
+
+.ig .cb,.ig .ey{transition:transform .4s cubic-bezier(.3,0,.2,1)}
+.ig .ey{transform:translate(0px,-117px) scale(1,1)}
+.ig .hw{transform:translate(0px,-800px) scale(1,1.3);transition:transform .4s cubic-bezier(.3,0,.2,1)}
+.ig .hw.rest{transform:none}
+.ig .spk{stroke-width:.2}
+:is(.ig.on,.ig:hover,.inv:hover .ig,.inv:focus-visible .ig) .cb{animation:igCb 3.6s linear .3s infinite}
+:is(.ig.on,.ig:hover,.inv:hover .ig,.inv:focus-visible .ig) .ey{animation:igEy 3.6s linear .3s infinite}
+:is(.ig.on,.ig:hover,.inv:hover .ig,.inv:focus-visible .ig) .hw0{animation:igH0 3.6s linear .3s infinite}
+:is(.ig.on,.ig:hover,.inv:hover .ig,.inv:focus-visible .ig) .hw1{animation:igH1 3.6s linear .3s infinite}
+:is(.ig.on,.ig:hover,.inv:hover .ig,.inv:focus-visible .ig) .hw2{animation:igH2 3.6s linear .3s infinite}
+:is(.ig.on,.ig:hover,.inv:hover .ig,.inv:focus-visible .ig) .hw3{animation:igOut .3s cubic-bezier(.5,0,1,.7) forwards,igH3 3.6s linear .3s infinite}
+:is(.ig.on,.ig:hover,.inv:hover .ig,.inv:focus-visible .ig) .spk0{animation:igSp0 3.6s linear .3s infinite}
+:is(.ig.on,.ig:hover,.inv:hover .ig,.inv:focus-visible .ig) .spk1{animation:igSp1 3.6s linear .3s infinite}
+:is(.ig.on,.ig:hover,.inv:hover .ig,.inv:focus-visible .ig) .spk2{animation:igSp2 3.6s linear .3s infinite}
+@keyframes igOut{from{transform:none}to{transform:translate(0px,-800px) scale(1,1.3)}}
+@keyframes igH0{
+0%{transform:translate(0px,-800px) scale(1,1.3)}
+1%{transform:translate(0px,-800px) scale(1,1.3);animation-timing-function:cubic-bezier(.5,0,1,.7)}
+5%{transform:translate(0px,8px) scale(1.12,.84);animation-timing-function:ease-out}
+8%{transform:translate(0px,-5px) scale(.97,1.05);animation-timing-function:ease-in-out}
+11%{transform:translate(0px,0px) scale(1,1);animation-timing-function:linear}
+22.5%{transform:translate(0px,0px) scale(1,1);animation-timing-function:cubic-bezier(.5,0,1,.7)}
+24.5%{transform:translate(0px,-800px) scale(1,1.3)}
+100%{transform:translate(0px,-800px) scale(1,1.3)}
+}
+@keyframes igH1{
+0%{transform:translate(0px,-800px) scale(1,1.3)}
+26%{transform:translate(0px,-800px) scale(1,1.3);animation-timing-function:cubic-bezier(.5,0,1,.7)}
+30%{transform:translate(0px,8px) scale(1.12,.84);animation-timing-function:ease-out}
+33%{transform:translate(0px,-5px) scale(.97,1.05);animation-timing-function:ease-in-out}
+36%{transform:translate(0px,0px) scale(1,1);animation-timing-function:linear}
+47.5%{transform:translate(0px,0px) scale(1,1);animation-timing-function:cubic-bezier(.5,0,1,.7)}
+49.5%{transform:translate(0px,-800px) scale(1,1.3)}
+100%{transform:translate(0px,-800px) scale(1,1.3)}
+}
+@keyframes igH2{
+0%{transform:translate(0px,-800px) scale(1,1.3)}
+51%{transform:translate(0px,-800px) scale(1,1.3);animation-timing-function:cubic-bezier(.5,0,1,.7)}
+55%{transform:translate(0px,8px) scale(1.12,.84);animation-timing-function:ease-out}
+58%{transform:translate(0px,-5px) scale(.97,1.05);animation-timing-function:ease-in-out}
+61%{transform:translate(0px,0px) scale(1,1);animation-timing-function:linear}
+72.5%{transform:translate(0px,0px) scale(1,1);animation-timing-function:cubic-bezier(.5,0,1,.7)}
+74.5%{transform:translate(0px,-800px) scale(1,1.3)}
+100%{transform:translate(0px,-800px) scale(1,1.3)}
+}
+@keyframes igH3{
+0%{transform:translate(0px,-800px) scale(1,1.3)}
+76%{transform:translate(0px,-800px) scale(1,1.3);animation-timing-function:cubic-bezier(.5,0,1,.7)}
+80%{transform:translate(0px,8px) scale(1.12,.84);animation-timing-function:ease-out}
+83%{transform:translate(0px,-5px) scale(.97,1.05);animation-timing-function:ease-in-out}
+86%{transform:translate(0px,0px) scale(1,1);animation-timing-function:linear}
+97.5%{transform:translate(0px,0px) scale(1,1);animation-timing-function:cubic-bezier(.5,0,1,.7)}
+99.5%{transform:translate(0px,-800px) scale(1,1.3)}
+100%{transform:translate(0px,-800px) scale(1,1.3)}
+}
+@keyframes igCb{
+0%{transform:translate(0px,0px) scale(1,1)}
+4.5%{transform:translate(0px,0px) scale(1,1);animation-timing-function:ease-out}
+5%{transform:translate(0px,17px) scale(1.06,.92);animation-timing-function:ease-in-out}
+8%{transform:translate(0px,-9px) scale(.98,1.04);animation-timing-function:ease-in-out}
+11%{transform:translate(0px,0px) scale(1,1)}
+29.5%{transform:translate(0px,0px) scale(1,1);animation-timing-function:ease-out}
+30%{transform:translate(0px,17px) scale(1.06,.92);animation-timing-function:ease-in-out}
+33%{transform:translate(0px,-9px) scale(.98,1.04);animation-timing-function:ease-in-out}
+36%{transform:translate(0px,0px) scale(1,1)}
+54.5%{transform:translate(0px,0px) scale(1,1);animation-timing-function:ease-out}
+55%{transform:translate(0px,17px) scale(1.06,.92);animation-timing-function:ease-in-out}
+58%{transform:translate(0px,-9px) scale(.98,1.04);animation-timing-function:ease-in-out}
+61%{transform:translate(0px,0px) scale(1,1)}
+79.5%{transform:translate(0px,0px) scale(1,1);animation-timing-function:ease-out}
+80%{transform:translate(0px,17px) scale(1.06,.92);animation-timing-function:ease-in-out}
+83%{transform:translate(0px,-9px) scale(.98,1.04);animation-timing-function:ease-in-out}
+86%{transform:translate(0px,0px) scale(1,1)}
+100%{transform:translate(0px,0px) scale(1,1)}
+}
+@keyframes igEy{
+0%{transform:translate(0px,-117px) scale(1,1)}
+4%{transform:translate(0px,-117px) scale(1,1)}
+5%{transform:translate(0px,-117px) scale(1,0.3);animation-timing-function:ease-in-out}
+11%{transform:translate(0px,-117px) scale(1,1)}
+29%{transform:translate(0px,-117px) scale(1,1)}
+30%{transform:translate(0px,-117px) scale(1,0.3);animation-timing-function:ease-in-out}
+36%{transform:translate(0px,-117px) scale(1,1)}
+54%{transform:translate(0px,-117px) scale(1,1)}
+55%{transform:translate(0px,-117px) scale(1,0.14);animation-timing-function:ease-in-out}
+72.5%{transform:translate(0px,-117px) scale(1,0.14);animation-timing-function:ease-in-out}
+76%{transform:translate(0px,-117px) scale(1,1)}
+79%{transform:translate(0px,-117px) scale(1,1)}
+80%{transform:translate(0px,-117px) scale(1,0.3);animation-timing-function:ease-in-out}
+86%{transform:translate(0px,-117px) scale(1,1)}
+100%{transform:translate(0px,-117px) scale(1,1)}
+}
+@keyframes igSp0{
+0%{transform:translate(300px,390px) rotate(0deg) scale(0)}
+4.5%{transform:translate(300px,390px) rotate(0deg) scale(0);animation-timing-function:cubic-bezier(.2,1.6,.4,1)}
+5%{transform:translate(300px,390px) rotate(45deg) scale(44);animation-timing-function:ease-in}
+10%{transform:translate(300px,390px) rotate(90deg) scale(0)}
+29.5%{transform:translate(300px,390px) rotate(0deg) scale(0);animation-timing-function:cubic-bezier(.2,1.6,.4,1)}
+30%{transform:translate(300px,390px) rotate(45deg) scale(44);animation-timing-function:ease-in}
+35%{transform:translate(300px,390px) rotate(90deg) scale(0)}
+54.5%{transform:translate(300px,390px) rotate(0deg) scale(0);animation-timing-function:cubic-bezier(.2,1.6,.4,1)}
+55%{transform:translate(300px,390px) rotate(45deg) scale(44);animation-timing-function:ease-in}
+60%{transform:translate(300px,390px) rotate(90deg) scale(0)}
+79.5%{transform:translate(300px,390px) rotate(0deg) scale(0);animation-timing-function:cubic-bezier(.2,1.6,.4,1)}
+80%{transform:translate(300px,390px) rotate(45deg) scale(44);animation-timing-function:ease-in}
+85%{transform:translate(300px,390px) rotate(90deg) scale(0)}
+100%{transform:translate(300px,390px) scale(0)}
+}
+@keyframes igSp1{
+0%{transform:translate(760px,390px) rotate(0deg) scale(0)}
+5.3%{transform:translate(760px,390px) rotate(0deg) scale(0);animation-timing-function:cubic-bezier(.2,1.6,.4,1)}
+5.8%{transform:translate(760px,390px) rotate(45deg) scale(36);animation-timing-function:ease-in}
+10.8%{transform:translate(760px,390px) rotate(90deg) scale(0)}
+30.3%{transform:translate(760px,390px) rotate(0deg) scale(0);animation-timing-function:cubic-bezier(.2,1.6,.4,1)}
+30.8%{transform:translate(760px,390px) rotate(45deg) scale(36);animation-timing-function:ease-in}
+35.8%{transform:translate(760px,390px) rotate(90deg) scale(0)}
+55.3%{transform:translate(760px,390px) rotate(0deg) scale(0);animation-timing-function:cubic-bezier(.2,1.6,.4,1)}
+55.8%{transform:translate(760px,390px) rotate(45deg) scale(36);animation-timing-function:ease-in}
+60.8%{transform:translate(760px,390px) rotate(90deg) scale(0)}
+80.3%{transform:translate(760px,390px) rotate(0deg) scale(0);animation-timing-function:cubic-bezier(.2,1.6,.4,1)}
+80.8%{transform:translate(760px,390px) rotate(45deg) scale(36);animation-timing-function:ease-in}
+85.8%{transform:translate(760px,390px) rotate(90deg) scale(0)}
+100%{transform:translate(760px,390px) scale(0)}
+}
+@keyframes igSp2{
+0%{transform:translate(650px,290px) rotate(0deg) scale(0)}
+6.1%{transform:translate(650px,290px) rotate(0deg) scale(0);animation-timing-function:cubic-bezier(.2,1.6,.4,1)}
+6.6%{transform:translate(650px,290px) rotate(45deg) scale(32);animation-timing-function:ease-in}
+11.6%{transform:translate(650px,290px) rotate(90deg) scale(0)}
+31.1%{transform:translate(650px,290px) rotate(0deg) scale(0);animation-timing-function:cubic-bezier(.2,1.6,.4,1)}
+31.6%{transform:translate(650px,290px) rotate(45deg) scale(32);animation-timing-function:ease-in}
+36.6%{transform:translate(650px,290px) rotate(90deg) scale(0)}
+56.1%{transform:translate(650px,290px) rotate(0deg) scale(0);animation-timing-function:cubic-bezier(.2,1.6,.4,1)}
+56.6%{transform:translate(650px,290px) rotate(45deg) scale(32);animation-timing-function:ease-in}
+61.6%{transform:translate(650px,290px) rotate(90deg) scale(0)}
+81.1%{transform:translate(650px,290px) rotate(0deg) scale(0);animation-timing-function:cubic-bezier(.2,1.6,.4,1)}
+81.6%{transform:translate(650px,290px) rotate(45deg) scale(32);animation-timing-function:ease-in}
+86.6%{transform:translate(650px,290px) rotate(90deg) scale(0)}
+100%{transform:translate(650px,290px) scale(0)}
+}
+.ig .gs0{stop-color:#d4145a;transition:stop-color .4s}
+.ig .gs1{stop-color:#c9145a;transition:stop-color .4s}
+.ig .gs2{stop-color:#97145a;transition:stop-color .4s}
+:is(.ig.on,.ig:hover,.inv:hover .ig,.inv:focus-visible .ig) .gs0{animation:igC0 3.6s linear .3s infinite}
+:is(.ig.on,.ig:hover,.inv:hover .ig,.inv:focus-visible .ig) .gs1{animation:igC1 3.6s linear .3s infinite}
+:is(.ig.on,.ig:hover,.inv:hover .ig,.inv:focus-visible .ig) .gs2{animation:igC2 3.6s linear .3s infinite}
+@keyframes igC0{
+0%{stop-color:#d4145a;animation-timing-function:ease-in-out}
+4.4%{stop-color:#d4145a;animation-timing-function:ease-in-out}
+5%{stop-color:#5af0c4;animation-timing-function:ease-in-out}
+29.4%{stop-color:#5af0c4;animation-timing-function:ease-in-out}
+30%{stop-color:#5fcbff;animation-timing-function:ease-in-out}
+54.4%{stop-color:#5fcbff;animation-timing-function:ease-in-out}
+55%{stop-color:#ff9a5c;animation-timing-function:ease-in-out}
+79.4%{stop-color:#ff9a5c;animation-timing-function:ease-in-out}
+80%{stop-color:#d4145a;animation-timing-function:ease-in-out}
+100%{stop-color:#d4145a;animation-timing-function:ease-in-out}
+}
+@keyframes igC1{
+0%{stop-color:#c9145a;animation-timing-function:ease-in-out}
+4.4%{stop-color:#c9145a;animation-timing-function:ease-in-out}
+5%{stop-color:#27e0a8;animation-timing-function:ease-in-out}
+29.4%{stop-color:#27e0a8;animation-timing-function:ease-in-out}
+30%{stop-color:#35b8ff;animation-timing-function:ease-in-out}
+54.4%{stop-color:#35b8ff;animation-timing-function:ease-in-out}
+55%{stop-color:#f15a24;animation-timing-function:ease-in-out}
+79.4%{stop-color:#f15a24;animation-timing-function:ease-in-out}
+80%{stop-color:#c9145a;animation-timing-function:ease-in-out}
+100%{stop-color:#c9145a;animation-timing-function:ease-in-out}
+}
+@keyframes igC2{
+0%{stop-color:#97145a;animation-timing-function:ease-in-out}
+4.4%{stop-color:#97145a;animation-timing-function:ease-in-out}
+5%{stop-color:#14a97c;animation-timing-function:ease-in-out}
+29.4%{stop-color:#14a97c;animation-timing-function:ease-in-out}
+30%{stop-color:#1f86d6;animation-timing-function:ease-in-out}
+54.4%{stop-color:#1f86d6;animation-timing-function:ease-in-out}
+55%{stop-color:#c13d0a;animation-timing-function:ease-in-out}
+79.4%{stop-color:#c13d0a;animation-timing-function:ease-in-out}
+80%{stop-color:#97145a;animation-timing-function:ease-in-out}
+100%{stop-color:#97145a;animation-timing-function:ease-in-out}
+}
+.ig .in{transform:translate(780px,770px) rotate(-25deg) scale(0);transition:transform .4s cubic-bezier(.3,0,.2,1)}
+.ig .in3{transform:translate(780px,770px) rotate(8deg) scale(1)}
+:is(.ig.on,.ig:hover,.inv:hover .ig,.inv:focus-visible .ig) .in0{animation:igI0 3.6s linear .3s infinite}
+:is(.ig.on,.ig:hover,.inv:hover .ig,.inv:focus-visible .ig) .in1{animation:igI1 3.6s linear .3s infinite}
+:is(.ig.on,.ig:hover,.inv:hover .ig,.inv:focus-visible .ig) .in2{animation:igI2 3.6s linear .3s infinite}
+:is(.ig.on,.ig:hover,.inv:hover .ig,.inv:focus-visible .ig) .in3{animation:igIOut .3s ease-in forwards,igI3 3.6s linear .3s infinite}
+@keyframes igIOut{from{transform:translate(780px,770px) rotate(8deg) scale(1)}to{transform:translate(780px,770px) rotate(40deg) scale(0)}}
+@keyframes igI0{
+0%{transform:translate(780px,770px) rotate(-25deg) scale(0)}
+3%{transform:translate(780px,770px) rotate(-25deg) scale(0);animation-timing-function:cubic-bezier(.34,1.56,.64,1)}
+6.5%{transform:translate(780px,770px) rotate(14deg) scale(1.12);animation-timing-function:ease-in-out}
+8.5%{transform:translate(780px,770px) rotate(8deg) scale(1);animation-timing-function:linear}
+25.5%{transform:translate(780px,770px) rotate(8deg) scale(1);animation-timing-function:ease-in}
+27.5%{transform:translate(780px,770px) rotate(40deg) scale(0)}
+100%{transform:translate(780px,770px) rotate(-25deg) scale(0)}
+}
+@keyframes igI1{
+0%{transform:translate(780px,770px) rotate(-25deg) scale(0)}
+28%{transform:translate(780px,770px) rotate(-25deg) scale(0);animation-timing-function:cubic-bezier(.34,1.56,.64,1)}
+31.5%{transform:translate(780px,770px) rotate(14deg) scale(1.12);animation-timing-function:ease-in-out}
+33.5%{transform:translate(780px,770px) rotate(8deg) scale(1);animation-timing-function:linear}
+50.5%{transform:translate(780px,770px) rotate(8deg) scale(1);animation-timing-function:ease-in}
+52.5%{transform:translate(780px,770px) rotate(40deg) scale(0)}
+100%{transform:translate(780px,770px) rotate(-25deg) scale(0)}
+}
+@keyframes igI2{
+0%{transform:translate(780px,770px) rotate(-25deg) scale(0)}
+53%{transform:translate(780px,770px) rotate(-25deg) scale(0);animation-timing-function:cubic-bezier(.34,1.56,.64,1)}
+56.5%{transform:translate(780px,770px) rotate(14deg) scale(1.12);animation-timing-function:ease-in-out}
+58.5%{transform:translate(780px,770px) rotate(8deg) scale(1);animation-timing-function:linear}
+75.5%{transform:translate(780px,770px) rotate(8deg) scale(1);animation-timing-function:ease-in}
+77.5%{transform:translate(780px,770px) rotate(40deg) scale(0)}
+100%{transform:translate(780px,770px) rotate(-25deg) scale(0)}
+}
+@keyframes igI3{
+0%{transform:translate(780px,770px) rotate(-25deg) scale(0)}
+78%{transform:translate(780px,770px) rotate(-25deg) scale(0);animation-timing-function:cubic-bezier(.34,1.56,.64,1)}
+81.5%{transform:translate(780px,770px) rotate(14deg) scale(1.12);animation-timing-function:ease-in-out}
+83.5%{transform:translate(780px,770px) rotate(8deg) scale(1);animation-timing-function:linear}
+97.5%{transform:translate(780px,770px) rotate(8deg) scale(1);animation-timing-function:ease-in}
+99.5%{transform:translate(780px,770px) rotate(40deg) scale(0)}
+100%{transform:translate(780px,770px) rotate(-25deg) scale(0)}
+}
+@media (prefers-reduced-motion:reduce){.ig .cb,.ig .ey,.ig .hw,.ig .spk,.ig .gs0,.ig .gs1,.ig .gs2,.ig .in{animation:none!important;transition:none}}

@@ -16,6 +16,7 @@
 
   const online = {
     room: null, // dernière vue du salon
+    receivedAt: 0, // heure (performance.now) de réception de cette vue : sert à estimer le chrono
     you: null, // { id, name }
 
     /** Salon ou partie en ligne en cours ? */
@@ -34,6 +35,8 @@
       net.close();
       online.room = null;
       online.you = null;
+      if (GB.pregameUI && GB.pregameUI.isOpen()) GB.pregameUI.close();
+      if (GB.phoneUI) GB.phoneUI.stop();
       if (game.state.active && game.online.isActive()) game.quit();
       listeners.left.forEach((listener) => listener());
     },
@@ -72,35 +75,98 @@
     });
   }
 
+  /** Contrôleur des pages d'avant-composition en ligne : le SERVEUR est l'arbitre, ici on affiche sa vue et on envoie les actions. */
+  function onlineController() {
+    return {
+      online: true,
+      get youId() {
+        return online.you ? online.you.id : null;
+      },
+      defaultBpm: 110,
+      view() {
+        const pre = online.room.pre;
+        const elapsed = performance.now() - online.receivedAt;
+        return Object.assign({}, pre, { remainingMs: Math.max(0, pre.remainingMs - elapsed) });
+      },
+      players: () => (online.room ? online.room.players : []),
+      send(command, arg) {
+        const input = arg || {};
+        if (net.status !== 'online') return { ok: false, error: 'Connexion perdue : réessaie dans un instant.' };
+        if (command === 'prep') {
+          const hash = input.settings && input.settings.sample ? input.settings.sample.hash : null;
+          if (hash) {
+            // Son importé : le fichier part d'abord au serveur (par empreinte), puis le choix.
+            return net.uploadSound(hash).then((result) => {
+              if (!result.ok) return { ok: false, error: 'Ton son n\'a pas pu être envoyé : ' + result.error };
+              return net.preCommand('prep', input) ? { ok: true } : { ok: false, error: 'Connexion perdue : réessaie dans un instant.' };
+            });
+          }
+        }
+        return net.preCommand(command, input) ? { ok: true } : { ok: false, error: 'Connexion perdue : réessaie dans un instant.' };
+      },
+      quit() {
+        online.leave();
+        ui.showScreen('home');
+      },
+    };
+  }
+
+  /**
+   * Aiguille l'affichage selon l'état du salon (le serveur décide) :
+   *   salle d'attente → rien ici (lobby-ui) · phases d'avant-composition → pages proposition/vote/préparation ·
+   *   composition ou révélation → écran de jeu.
+   */
+  function route(room, contributions) {
+    if (!room || room.status === 'lobby') return;
+    if (room.settings && room.settings.gameMode === 'phone' && GB.phoneUI) {
+      GB.phoneUI.route(room); // mode Phone : son propre déroulement (js/phone-ui.js)
+      return;
+    }
+    const gameActive = game.state.active && game.online.isActive();
+    const preRunning = room.status === 'playing' && room.pre && room.pre.stage !== 'done' && !room.round;
+    if (preRunning) {
+      if (!GB.pregameUI.isOpen()) GB.pregameUI.open(onlineController());
+      else GB.pregameUI.refresh();
+      return;
+    }
+    if (GB.pregameUI.isOpen()) GB.pregameUI.close();
+    if (!gameActive) enterGame(room, contributions || []);
+  }
+
   function init() {
     net.on('welcome', (message) => {
       online.you = { id: message.you.id, name: message.you.name };
       online.room = message.room;
+      online.receivedAt = performance.now();
       emit('room', message.room);
     });
 
     net.on('sync', (message) => {
       if (!online.you) return;
       online.room = message.room;
+      online.receivedAt = performance.now();
       if (game.state.active && game.online.isActive()) {
         // Reconnexion en cours de partie : on garde ce qu'on est en train de faire et on rattrape ce qui a été manqué.
         message.contributions.forEach((entry) => game.online.applyContribution(entry));
         game.online.applyRoom(message.room);
       } else {
-        enterGame(message.room, message.contributions);
+        route(message.room, message.contributions);
       }
       emit('room', message.room);
     });
 
     net.on('started', (message) => {
       online.room = message.room;
-      enterGame(message.room, []);
+      online.receivedAt = performance.now();
+      route(message.room, []);
       emit('room', message.room);
     });
 
     net.on('room', (message) => {
       online.room = message.room;
+      online.receivedAt = performance.now();
       if (game.state.active && game.online.isActive()) game.online.applyRoom(message.room);
+      else route(message.room, []);
       emit('room', message.room);
     });
 
@@ -112,13 +178,22 @@
       if (game.state.active && game.online.isActive()) {
         if (game.online.sendFailed()) ui.showToast(message.message);
         else ui.showToast(message.message);
+      } else if (GB.pregameUI.isOpen()) {
+        GB.pregameUI.notify(message.message);
+      } else if (GB.phoneUI && GB.phoneUI.isActive()) {
+        GB.phoneUI.onError(message);
       }
       emit('error', message);
     });
 
+    net.on('phone-input', (message) => GB.phoneUI && GB.phoneUI.onInput(message.input));
+    net.on('phone-chains', (message) => GB.phoneUI && GB.phoneUI.onChains(message.chains));
+
     net.on('left', () => {
       online.room = null;
       online.you = null;
+      if (GB.phoneUI) GB.phoneUI.stop();
+      if (GB.pregameUI && GB.pregameUI.isOpen()) GB.pregameUI.close();
     });
 
     net.on('status', (message) => emit('status', message.status));

@@ -5,10 +5,10 @@
  * Il réutilise l'éditeur existant (piano-roll, transport, tempo) via GB.ui.
  *
  * Écrans / vues :
- *   setup   configuration de la partie
+ *   setup   configuration de la partie de test
+ *   pre     phases d'avant-composition (js/pregame-ui.js) : proposition → vote → préparation
  *   editor  l'éditeur, avec une vue différente selon la phase :
- *             - « lanes » : toutes les couches, pour écouter la chanson (listen, bot)
- *             - « pick »  : choix de l'instrument du tour
+ *             - « lanes » : toutes les couches, pour écouter la chanson (attente, fin de round)
  *             - « roll »  : le piano-roll, pour composer sa couche
  *   final   révélations : chaque chanson est reconstruite couche après couche (liste des chansons, rejouable)
  */
@@ -33,23 +33,18 @@
     rbKind: $('rb-kind'),
     rbTheme: $('rb-theme'),
     revealTheme: $('reveal-theme'),
-    btnThemesStart: $('btn-themes-start'),
-    btnThemesBack: $('btn-themes-back'),
     rbTime: $('rb-time'),
     rbFill: $('rb-fill'),
     rbReady: $('rb-ready'),
     rbMe: $('rb-me'),
     setupBars: $('setup-bars'),
-    setupBpm: $('setup-bpm'),
-    setupBpmValue: $('setup-bpm-value'),
+    setupSpeed: $('setup-speed'),
     setupRoster: $('setup-roster'),
     setupSummary: $('setup-summary'),
     gamePlayers: $('game-players'),
     banner: $('phase-banner'),
     roll: $('roll'),
     lanes: $('lanes'),
-    pick: $('pick'),
-    btnToPick: $('btn-to-pick'),
     btnValidate: $('btn-validate'),
     btnClear: $('btn-clear'),
     btnQuit: $('btn-quit-game'),
@@ -78,32 +73,13 @@
     btnFinalHome: $('btn-final-home'),
   };
 
-  const setup = Object.assign({}, game.DEFAULT_SETUP);
-
-  const INSTRUMENT_BLURBS = {
-    piano: 'Notes claires et courtes',
-    synth: 'Nappes douces qui durent',
-    bass: 'Les graves qui portent le groove',
-    lead: 'Mélodies pétillantes 8-bit',
-    drums: 'Le rythme : un son par ligne',
-    trumpet: 'Cuivre brillant et éclatant',
-    flute: 'Souffle doux et aérien',
-    vox: 'Voix électronique réglable',
-    mic: 'Ta vraie voix, au micro',
-  };
-
-  function blurbFor(instrumentId) {
-    if (INSTRUMENT_BLURBS[instrumentId]) return INSTRUMENT_BLURBS[instrumentId];
-    const meta = GB.INSTRUMENTS[instrumentId];
-    if (meta && meta.sample) return 'Son importé' + (meta.settings && meta.settings.sample && meta.settings.sample.duration ? ' · ' + meta.settings.sample.duration.toFixed(1).replace('.', ',') + ' s' : '');
-    const wave = meta && meta.settings ? GB.instruments.WAVES.find((entry) => entry.value === meta.settings.wave) : null;
-    return 'Instrument perso' + (wave ? ' · ' + wave.label.toLowerCase() : '');
-  }
+  const setup = Object.assign({ speed: 'normal' }, game.DEFAULT_SETUP);
 
   const GAME_TIPS =
-    '💡 Tout le monde joue en même temps pendant le round : tu écoutes, tu choisis un instrument, tu ajoutes ta couche. ' +
-    'Les couches déjà validées sont verrouillées 🔒 (petits points sur la grille). ' +
-    'Attrape une note pour la déplacer, tire sa poignée pour l\'allonger. Clique sur « Prêt » quand tu as fini : sinon le chrono sauvegarde ton travail à zéro.';
+    'Tout le monde joue en même temps pendant le round : tu écoutes la chanson reçue (Lecture) et tu ajoutes ta couche. ' +
+    'Les couches déjà validées sont verrouillées (petits points sur la grille). ' +
+    'Un clic = une note ; attrape une note pour la déplacer, tire sa poignée pour l\'allonger. Tu peux changer d\'instrument ou de difficulté sans perdre tes notes. ' +
+    'Clique sur « Prêt » quand tu as fini : sinon le chrono sauvegarde ton travail à zéro.';
 
   function create(tag, className, text) {
     const node = document.createElement(tag);
@@ -159,7 +135,7 @@
         setup.manual = value;
         renderSetup();
       },
-      (value) => (value ? '🎛 Test solo (je joue tout le monde)' : '🤖 Avec des personnages')
+      (value) => (value ? 'Test solo (je joue tout le monde)' : 'Avec des personnages')
     );
     renderSegmented(el.setupBars, range(...L.bars), setup.bars, (value) => {
       setup.bars = value;
@@ -170,24 +146,24 @@
       renderSetup();
     }, formatDuration);
 
-    el.setupBpm.min = CONFIG.BPM_MIN;
-    el.setupBpm.max = CONFIG.BPM_MAX;
-    el.setupBpm.value = setup.bpm;
-    el.setupBpmValue.textContent = setup.bpm;
+    renderSegmented(el.setupSpeed, GB.phases.PRESETS.map((preset) => preset.id), setup.speed, (value) => {
+      setup.speed = value;
+      renderSetup();
+    }, (value) => GB.phases.PRESETS.find((preset) => preset.id === value).label);
 
     el.setupRoster.innerHTML = '';
     game.getPlayers(setup.participants, setup.name).forEach((player) => {
       const chip = create('div', 'roster-chip');
       chip.style.setProperty('--c', player.color);
-      chip.append(create('span', 'roster-avatar', player.avatar), create('span', null, player.name));
+      chip.append(GB.avatar.node(player, 'sb-roster'), create('span', null, player.name));
       chip.classList.toggle('is-human', player.isHuman);
       el.setupRoster.append(chip);
     });
 
     const n = setup.participants;
     el.setupSummary.textContent =
-      plural(n, 'participant', 'participants') + ' → ' + plural(n, 'chanson', 'chansons') + ' et ' + plural(n, 'round', 'rounds') +
-      ' de ' + formatDuration(setup.roundSeconds) + ' (' + n + ' contributions par chanson, la base du créateur comprise) · boucle de ' + setup.bars + ' mesures' +
+      plural(n, 'participant', 'participants') + ' : ' + plural(n, 'chanson', 'chansons') + ' et ' + plural(n, 'round', 'rounds') +
+      ' de ' + formatDuration(setup.roundSeconds) + ' (' + n + ' contributions par chanson, la base du créateur comprise) · boucle de ' + setup.bars + ' mesures · avant : idées de thème, vote, préparation (tempo, instrument, difficulté)' +
       (setup.manual ? ' · tu contrôles tous les participants (clique sur un participant pour jouer sa tâche)' : ' · tu joues le premier, les autres composent tout seuls pendant le round');
   }
 
@@ -198,115 +174,39 @@
   }
 
   /* ------------------------------------------------------------------ */
-  /*  Thèmes en mode test local : mêmes règles que le serveur (js/themes.js)  */
+  /*  Phases d'avant-composition (partie de test locale)                  */
   /* ------------------------------------------------------------------ */
 
-  const BOT_THEMES = [
-    'Une musique de boss final',
-    'La bande-son d\'un jeu sous-marin',
-    'Une musique qui fait peur à un fantôme',
-    'Une musique qui donne envie de danser',
-    'La fin du monde',
-    'Un rêve étrange',
-    'Un dimanche pluvieux au marché',
-    'Une poursuite à dos de dragon',
-  ];
+  let localControl = null;
 
-  const localThemes = { book: null, players: [], actor: null, panel: null, botTimers: [] };
-
-  function themeIds() {
-    return localThemes.players.map((player) => player.id);
-  }
-
-  const themeController = {
-    view: () => GB.themes.view(localThemes.book, performance.now(), themeIds()),
-    remainingMs: () => Math.max(0, localThemes.book.vote.endsAt - performance.now()),
-    actorId: () => localThemes.actor,
-    hostId: () => localThemes.players[0].id, // en test local, le joueur humain est l'hôte
-    players: () => localThemes.players,
-    actors: () => localThemes.players,
-    setActor(id) {
-      localThemes.actor = id;
-    },
-    tick() {
-      if (GB.themes.tick(localThemes.book, performance.now(), themeIds()) && localThemes.panel) localThemes.panel.render();
-    },
-    act(command, arg) {
-      const book = localThemes.book;
-      const by = localThemes.actor;
-      const host = themeController.hostId();
-      const now = performance.now();
-      const input = arg || {};
-      const T = GB.themes;
-      const player = localThemes.players.find((entry) => entry.id === by);
-      if (command === 'propose') return T.propose(book, player, input.text);
-      if (command === 'remove') return T.remove(book, by, host, input.id);
-      if (command === 'vote') return T.cast(book, by, input.id, now, themeIds());
-      if (command === 'vote-close') return T.close(book, by, host, themeIds());
-      if (command === 'pick') return T.pick(book, by, host, input.id);
-      if (command === 'default') return T.useDefault(book, by, host);
-      if (command === 'vote-open') {
-        const result = T.openVote(book, by, host, input.seconds, now);
-        if (result.ok) scheduleBotVotes();
-        return result;
-      }
-      return { ok: false, code: 'unknown', error: 'Commande inconnue.' };
-    },
-    extra(box, rerender) {
-      const view = themeController.view();
-      if (view.vote.status === 'idle' && !view.theme) {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'btn btn-ghost btn-small';
-        button.textContent = '🤖 Les robots proposent un thème';
-        button.addEventListener('click', () => {
-          localThemes.players.filter((player) => !player.isHuman).forEach((bot, index) => {
-            const text = BOT_THEMES[(index + localThemes.book.themes.length) % BOT_THEMES.length];
-            GB.themes.propose(localThemes.book, bot, text);
-          });
-          rerender();
-        });
-        box.append(button);
-      }
-    },
-  };
-
-  /** Les robots votent au hasard, à des moments différents, tant que le vote est ouvert. */
-  function scheduleBotVotes() {
-    localThemes.botTimers.forEach(clearTimeout);
-    localThemes.botTimers = localThemes.players
-      .filter((player) => !player.isHuman)
-      .map((bot) =>
-        setTimeout(() => {
-          const book = localThemes.book;
-          if (!book || book.vote.status !== 'open' || book.themes.length === 0) return;
-          const target = book.themes[Math.floor(Math.random() * book.themes.length)];
-          GB.themes.cast(book, bot.id, target.id, performance.now(), themeIds());
-          if (localThemes.panel) localThemes.panel.render();
-        }, 700 + Math.random() * 1800)
-      );
-  }
-
-  function showThemes() {
+  /** Lance les phases proposition → vote → préparation avec des personnages, puis la composition. */
+  function startPregame() {
     audio.unlock();
-    localThemes.players = game.getPlayers(setup.participants, setup.name);
-    localThemes.book = GB.themes.create();
-    localThemes.actor = localThemes.players[0].id;
-    localThemes.botTimers.forEach(clearTimeout);
-    if (localThemes.panel) localThemes.panel.destroy();
-    localThemes.panel = GB.themesUI.mount($('local-themes'), themeController);
-    ui.showScreen('themes');
+    stopPregame();
+    const players = game.getPlayers(setup.participants, setup.name);
+    const preset = GB.phases.PRESETS.find((entry) => entry.id === setup.speed) || GB.phases.PRESETS[1];
+    const seconds = Object.assign({}, preset.seconds, setup.pregameSeconds || {});
+    localControl = GB.pregameUI.createLocalController({
+      players,
+      seconds,
+      defaultBpm: setup.bpm,
+      drawMs: setup.drawMs,
+      onDone(result) {
+        localControl = null;
+        GB.pregameUI.close();
+        setup.theme = result.theme;
+        setup.preps = result.preps;
+        startGame();
+        delete setup.theme;
+        delete setup.preps;
+      },
+    });
+    GB.pregameUI.open(localControl);
   }
 
-  function startFromThemes() {
-    if (localThemes.book.vote.status === 'open') {
-      ui.showToast('Clôture le vote avant de lancer la partie.');
-      return;
-    }
-    localThemes.botTimers.forEach(clearTimeout);
-    setup.theme = GB.themes.settle(localThemes.book); // sans choix : thème par défaut, clairement indiqué
-    startGame();
-    delete setup.theme;
+  function stopPregame() {
+    if (localControl) localControl.stop();
+    localControl = null;
   }
 
   function startGame() {
@@ -325,15 +225,69 @@
   /* ------------------------------------------------------------------ */
 
   /**
-   * 'free' | 'roll' | 'lanes' | 'pick' | 'transition' : une seule vue principale à la fois dans la scène.
+   * 'free' | 'roll' | 'lanes' | 'transition' : une seule vue principale à la fois dans la scène.
    * `withLanes` : en vue 'transition', afficher aussi la chanson terminée sous le message.
    */
+  /* Aperçu avant de contribuer : simple affichage (la vue « couches » + 2 boutons) au début de ta composition.
+     Ce n'est pas une phase du jeu : aucun chrono, aucun état de partie, rien n'est envoyé ; « Contribuer » ouvre juste le piano-roll. */
+  let previewBar = null;
+  let previewTimer = 0;
+
+  function clearPreview() {
+    if (previewTimer) {
+      clearInterval(previewTimer);
+      previewTimer = 0;
+    }
+    if (previewBar) {
+      previewBar.remove();
+      previewBar = null;
+    }
+    el.lanes.classList.remove('is-preview');
+  }
+
+  function previewTracks(turn) {
+    return store.getTracks().filter((track) => track.id !== turn.trackId);
+  }
+
+  function showPreview(turn) {
+    const others = previewTracks(turn);
+    showEditorView('lanes');
+    el.lanes.classList.add('is-preview');
+    renderLanes(el.lanes, { highlightTrackId: turn.trackId });
+    const bar = create('div', 'preview-bar');
+    const text = create('div', 'preview-text', 'Voici ce qui existe déjà');
+    text.append(create('small', null, plural(others.length, 'couche', 'couches') + ' · écoute, puis ajoute la tienne'));
+    const listen = GB.icons.set(create('button', 'btn btn-ghost'), 'play', 'Écouter');
+    listen.type = 'button';
+    const refresh = () => {
+      GB.icons.set(listen, audio.getStatus() === 'playing' ? 'pause' : 'play', audio.getStatus() === 'playing' ? 'Pause' : 'Écouter');
+    };
+    listen.addEventListener('click', () => {
+      if (audio.getStatus() === 'playing') audio.pause();
+      else startPlayback();
+      refresh();
+    });
+    const go = GB.icons.set(create('button', 'btn btn-primary'), 'pencil', 'Contribuer');
+    go.type = 'button';
+    go.addEventListener('click', () => {
+      clearPreview();
+      showEditorView('roll');
+      ui.renderRoll();
+      ui.renderStageHeader();
+    });
+    bar.append(text, listen, go);
+    el.lanes.parentNode.insertBefore(bar, el.lanes);
+    previewBar = bar;
+    refresh();
+    previewTimer = setInterval(refresh, 300);
+  }
+
   function showEditorView(view, withLanes) {
+    if (view !== 'lanes') clearPreview();
     el.roll.hidden = !(view === 'free' || view === 'roll');
     if (!(view === 'free' || view === 'roll')) ui.el.vowelBar.hidden = true; // la barre des voyelles ne vit qu'avec la grille
     if (!(view === 'free' || view === 'roll')) $('voice-panel').hidden = true; // en vue roll/free, c'est renderRoll qui décide
     el.lanes.hidden = !(view === 'lanes' || (view === 'transition' && withLanes));
-    el.pick.hidden = view !== 'pick';
     el.transition.hidden = view !== 'transition';
   }
 
@@ -343,7 +297,7 @@
     if (!message) return;
     const color = player ? player.color : '#7C5CFF';
     el.banner.style.setProperty('--c', color);
-    if (player) el.banner.append(create('span', 'banner-avatar', player.avatar));
+    if (player) el.banner.append(GB.avatar.node(player, 'sb-banner'));
     el.banner.append(create('span', null, message));
   }
 
@@ -352,7 +306,6 @@
     const inGame = ui.isGameMode() && game.state.active;
     const phase = game.state.phase;
     el.btnClear.hidden = inGame && phase !== 'compose';
-    el.btnToPick.hidden = !(inGame && phase === 'listen');
     el.btnValidate.hidden = !(inGame && phase === 'compose');
     const canValidate = inGame && game.canValidate();
     el.btnValidate.disabled = !canValidate;
@@ -400,10 +353,10 @@
 
       const label = create('div', 'lane-label');
       label.append(
-        create('span', 'lane-avatar', author ? author.avatar : instrument.icon),
+        author ? GB.avatar.node(author, 'sb-lane') : GB.icons.el(instrument.icon, 'lane-avatar'),
         (() => {
           const text = create('span', 'lane-text');
-          text.append(create('strong', null, author ? author.name : track.name), create('small', null, instrument.icon + ' ' + instrument.label));
+          text.append(create('strong', null, author ? author.name : track.name), create('small', null, instrument.label));
           return text;
         })()
       );
@@ -443,63 +396,9 @@
     container.append(overlay);
   }
 
-  /* ------------------------------------------------------------------ */
-  /*  Vue « choix de l'instrument »                                      */
-  /* ------------------------------------------------------------------ */
-
   /** « La chanson d'Alex » → « la chanson d'Alex » (pour l'insérer dans une phrase). */
   function inline(title) {
     return title.charAt(0).toLowerCase() + title.slice(1);
-  }
-
-  function renderPick() {
-    const turn = game.currentTurn();
-    const player = game.getCurrentPlayer();
-    const song = game.getCurrentSong();
-    el.pick.innerHTML = '';
-    el.pick.style.setProperty('--c', player.color);
-    const who = player.isHuman && !game.state.config.manual ? 'Choisis ton instrument' : player.name + ' choisit son instrument';
-    el.pick.append(
-      create('h3', 'pick-title', who + ' · ' + song.title),
-      create(
-        'p',
-        'pick-sub',
-        turn.kind === 'create'
-          ? 'Tu crées ta propre chanson : ton instrument lance la musique.'
-          : 'Tu peux en prendre un différent à chaque chanson. Ta couche s\'ajoutera à ' + inline(song.title) + '.'
-      )
-    );
-
-    const cards = create('div', 'pick-cards');
-    GB.instruments.pickable().forEach((instrumentId) => {
-      const instrument = GB.INSTRUMENTS[instrumentId];
-      const users = store
-        .getTracks()
-        .filter((track) => track.instrumentId === instrumentId)
-        .map((track) => (track.author ? game.playerById(track.author).avatar : '•'));
-
-      const card = create('button', 'pick-card');
-      card.type = 'button';
-      card.dataset.instrument = instrumentId;
-      card.append(
-        create('span', 'pick-icon', instrument.icon),
-        create('strong', null, instrument.label),
-        create('small', null, blurbFor(instrumentId)),
-        create('span', 'pick-used', users.length ? 'Déjà joué par ' + users.join(' ') : 'Pas encore dans cette chanson')
-      );
-      cards.append(card);
-    });
-    const make = create('button', 'pick-card pick-card-new');
-    make.type = 'button';
-    make.dataset.action = 'new-instrument';
-    make.append(create('span', 'pick-icon', '＋'), create('strong', null, 'Créer un instrument'), create('small', null, 'Forme d\'onde, enveloppe, écho…'));
-    cards.append(make);
-    const mine = create('button', 'pick-card pick-card-new');
-    mine.type = 'button';
-    mine.dataset.action = 'my-sounds';
-    mine.append(create('span', 'pick-icon', '🎧'), create('strong', null, 'Mes sons'), create('small', null, 'Importe un son et joue-le en notes'));
-    cards.append(mine);
-    el.pick.append(cards);
   }
 
   /* ------------------------------------------------------------------ */
@@ -510,7 +409,7 @@
   function statusOf(player, task) {
     if (player.connected === false) return 'absent';
     if (!task) return '';
-    if (task.status === 'ready') return 'prêt ✓';
+    if (task.status === 'ready') return 'prêt';
     if (task.status === 'timeout' || task.status === 'absent') return 'temps écoulé';
     return 'compose…';
   }
@@ -543,7 +442,7 @@
         create('span', 'gp-name', player.name + (player.isHuman && player.name !== 'Toi' ? ' (toi)' : '')),
         create('small', 'gp-status', statusOf(player, task))
       );
-      chip.append(create('span', 'gp-avatar', player.avatar), text);
+      chip.append(GB.avatar.node(player, 'sb-gp'), text);
       el.gamePlayers.append(chip);
     });
 
@@ -552,11 +451,9 @@
 
   function meStatus(state, turn) {
     if (!turn) return '';
-    if (state.phase === 'ready') return '🔒 Ta contribution est verrouillée';
-    if (state.phase === 'closing') return '⏱ Envoi de ton travail…';
-    if (state.phase === 'listen') return '👂 Écoute la chanson reçue';
-    if (state.phase === 'pick') return '🎨 Choisis ton instrument';
-    if (state.phase === 'compose') return '✏️ Tu composes';
+    if (state.phase === 'ready') return 'Ta contribution est verrouillée';
+    if (state.phase === 'closing') return 'Envoi de ton travail…';
+    if (state.phase === 'compose') return 'Tu composes';
     return '';
   }
 
@@ -576,7 +473,7 @@
       progress.stage === 'create'
         ? song ? 'Crée la base de ' + inline(song.title) : 'Crée la base de ta chanson'
         : song ? 'Ajoute ta couche à ' + inline(song.title) + ' (' + plural(song.contributionIds.length, 'couche', 'couches') + ' déjà)' : '';
-    el.rbTheme.textContent = state.theme ? '🎯 Thème : ' + state.theme.text + (state.theme.source === 'default' ? ' (par défaut)' : '') : '';
+    el.rbTheme.textContent = state.theme ? 'Thème : ' + state.theme.text + (state.theme.source === 'default' ? ' (par défaut)' : '') : '';
     el.rbMe.textContent = meStatus(state, turn);
     el.rbMe.dataset.me = state.phase;
     el.rbReady.textContent = progress.readyCount + '/' + progress.taskCount + ' prêts';
@@ -611,6 +508,11 @@
     ui.el.stageChip.style.setProperty('--track-color', player ? player.color : '#7C5CFF');
   }
 
+  /** Dès l'arrivée en composition, la chanson reçue joue en boucle (si elle a déjà des couches). */
+  function startPlaybackIfIdle() {
+    if (store.getTracks().length > 1 && audio.getStatus() === 'stopped') startPlayback();
+  }
+
   function startPlayback() {
     audio.play().catch(() => ui.showToast('Impossible de démarrer le son : clique sur Lecture.'));
   }
@@ -627,7 +529,7 @@
     el.transition.innerHTML = '';
     el.transition.style.setProperty('--c', player.color);
     const box = create('div', 'round-intro');
-    box.append(create('div', 'transition-icon', turn.kind === 'create' ? '✨' : '🎧'));
+    box.append(GB.icons.el(turn.kind === 'create' ? 'sparkle' : 'headphones', 'transition-icon'));
     box.append(create('h3', null, 'Round ' + progress.round + '/' + progress.totalRounds));
     box.append(
       create(
@@ -635,13 +537,13 @@
         null,
         turn.kind === 'create'
           ? (mine ? 'Crée la base de ta propre chanson : ' + song.title + '.' : player.name + ' crée la base de sa chanson : ' + song.title + '.') + ' Tout le monde compose en même temps !'
-          : (mine ? 'Tu reçois' : player.name + ' reçoit') + ' ' + creator.avatar + ' ' + inline(song.title) +
-              '. Écoute-la, choisis un instrument et ajoute ta couche : la base et les couches déjà là restent intactes.'
+          : (mine ? 'Tu reçois' : player.name + ' reçoit') + ' ' + inline(song.title) +
+              '. Écoute-la et ajoute ta couche : la base et les couches déjà là restent intactes.'
       )
     );
     if (state.lastEnd) {
       box.append(
-        create('p', 'empty-note', state.lastEnd === 'timeout' ? '⏱ Le round précédent s\'est terminé faute de temps : chaque travail en cours a été gardé.' : '🎉 Tout le monde était prêt : on enchaîne !')
+        create('p', 'empty-note', state.lastEnd === 'timeout' ? 'Le round précédent s\'est terminé faute de temps : chaque travail en cours a été gardé.' : 'Tout le monde était prêt : on enchaîne !')
       );
     }
     const assign = create('div', 'ri-assign');
@@ -651,7 +553,7 @@
       const chip = create('span', 'si-song');
       chip.style.setProperty('--c', entry.color);
       const targetCreator = game.playerById(target.creatorId);
-      chip.append(create('span', 'si-letter', targetCreator.avatar), create('span', null, entry.avatar + ' ' + entry.name), create('small', 'si-title', target.title));
+      chip.append(GB.avatar.node(targetCreator, 'sb-si'), create('span', null, entry.name), create('small', 'si-title', target.title));
       assign.append(chip);
     });
     box.append(assign);
@@ -680,7 +582,9 @@
     const song = game.songById(turn.songId);
     const creator = game.playerById(song.creatorId);
     const mine = isMine(player) || (state.online && player.id === game.online.getYouId());
+    clearPreview();
     ui.el.instrumentPanel.hidden = state.phase !== 'compose';
+    document.body.classList.toggle('is-composing', state.phase === 'compose');
     ui.el.stageInstrument.hidden = false;
 
     renderGameBar();
@@ -693,55 +597,32 @@
       setBanner(null, '');
       audio.stop();
       renderIntro();
-    } else if (state.phase === 'listen') {
-      showEditorView('lanes');
-      ui.renderTracks();
-      setStageTitle(player, 'Écoute ' + inline(song.title), plural(store.getTracks().length, 'couche', 'couches'));
-      setBanner(
-        player,
-        (mine ? 'À toi' : player.name) + ' : ' + inline(song.title) + '. Écoute-la tant que tu veux (le chrono tourne), puis ' +
-          (mine ? 'choisis ton' : 'choisit son') + ' instrument.'
-      );
-      renderLanes(el.lanes);
-      startPlayback();
-    } else if (state.phase === 'pick') {
-      showEditorView('pick');
-      ui.renderTracks();
-      setStageTitle(player, 'Choix de l\'instrument', song.title + ' · round ' + (state.round + 1));
-      setBanner(
-        player,
-        turn.kind === 'create'
-          ? (mine ? 'Tu crées' : player.name + ' crée') + ' la base de ' + inline(song.title) + ' : la boucle est vide, lance-la !'
-          : 'Quel instrument ' + (mine ? 'vas-tu' : player.name + ' va-t-il/elle') + ' ajouter à ' + inline(song.title) + ' ?'
-      );
-      renderPick();
     } else if (state.phase === 'compose') {
       showEditorView('roll');
       ui.renderTracks();
       ui.renderInstrumentPicker();
       ui.renderStageHeader();
       ui.renderRoll();
-      const track = store.getSelectedTrack();
-      setBanner(
-        player,
-        (mine ? 'À toi de composer' : player.name + ' compose') + ' avec ' + GB.INSTRUMENTS[track.instrumentId].label +
-          ' (' + inline(song.title) + ') ! Clique sur « Prêt » quand c\'est bon, ou le chrono s\'en chargera.'
-      );
+      setBanner(null, ''); // pas de bandeau pendant la composition : toute la place va au piano-roll
+      if (ui.setDifficulty) ui.setDifficulty(game.getMode(player.id)); // la difficulté de CE participant
+      ui.renderQuickInstrument();
+      startPlaybackIfIdle();
+      if (mine && previewTracks(turn).length > 0) showPreview(turn); // aperçu des couches existantes + bouton « Contribuer »
     } else if (state.phase === 'ready' || state.phase === 'closing') {
       showEditorView('lanes');
       ui.renderTracks();
       const waiting = game.roundTasks().filter((entry) => entry.status === 'working').length;
       if (state.phase === 'closing') {
         setStageTitle(player, 'Temps écoulé', 'Sauvegarde en cours…');
-        setBanner(player, '⏱ Temps écoulé : ' + (mine ? 'ta' : 'la') + ' contribution en cours est sauvegardée…');
+        setBanner(player, 'Temps écoulé : ' + (mine ? 'ta' : 'la') + ' contribution en cours est sauvegardée…');
       } else if (turn.empty) {
         setStageTitle(player, 'Rien enregistré', song.title);
-        setBanner(player, '⏱ ' + (mine ? 'Tu n\'as' : player.name + ' n\'a') + ' rien composé : ce round est enregistré comme une contribution vide.');
+        setBanner(player, '' + (mine ? 'Tu n\'as' : player.name + ' n\'a') + ' rien composé : ce round est enregistré comme une contribution vide.');
       } else {
         setStageTitle(player, (mine ? 'Tu es prêt' : player.name + ' est prêt'), song.title + ' · verrouillé');
         setBanner(
           player,
-          '✅ Contribution verrouillée. ' +
+          'Contribution verrouillée. ' +
             (waiting > 0 ? 'En attente des autres joueurs (' + plural(waiting, 'joueur travaille encore', 'joueurs travaillent encore') + ')…' : 'Tout le monde est prêt !')
         );
       }
@@ -768,14 +649,14 @@
     const ended = reveal.ended;
     const host = game.isHost();
     const hostPlayer = game.playerById(game.hostId());
-    const hostName = hostPlayer ? hostPlayer.avatar + ' ' + hostPlayer.name : 'l\'hôte';
+    const hostName = hostPlayer ? hostPlayer.name : 'l\'hôte';
     const done = reveal.status === 'done';
 
     ui.showScreen('final');
     el.revealHeading.textContent = ended
-      ? '🏁 Partie terminée !'
-      : waiting ? '🎼 Composition terminée' : '🎶 ' + song.title;
-    el.revealTheme.textContent = state.theme ? '🎯 Thème : ' + state.theme.text + (state.theme.source === 'default' ? ' (thème par défaut)' : '') : '';
+      ? 'Partie terminée !'
+      : waiting ? 'Composition terminée' : song.title;
+    el.revealTheme.textContent = state.theme ? 'Thème : ' + state.theme.text + (state.theme.source === 'default' ? ' (thème par défaut)' : '') : '';
     el.finalSubtitle.textContent =
       plural(state.songs.length, 'chanson', 'chansons') + ' · ' + plural(state.players.length, 'participant', 'participants') +
       ' · ' + state.config.bars + ' mesures à ' + store.state.bpm + ' BPM';
@@ -796,9 +677,9 @@
       button.classList.toggle('current', !waiting && index === reveal.songIndex);
       button.setAttribute('aria-current', String(!waiting && index === reveal.songIndex));
       const text = create('span');
-      const label = ended ? (finished ? ' · ✅ réécouter' : '') : finished ? ' · ✅' : !waiting && index === reveal.songIndex ? ' · en cours' : ' · à venir';
-      text.append(document.createTextNode(entry.title), create('small', null, owner.avatar + ' ' + owner.name + label));
-      button.append(create('span', 'rs-letter', owner.avatar), text);
+      const label = ended ? (finished ? ' · réécouter' : '') : finished ? ' · terminée' : !waiting && index === reveal.songIndex ? ' · en cours' : ' · à venir';
+      text.append(document.createTextNode(entry.title), create('small', null, owner.name + label));
+      button.append(GB.avatar.node(owner, 'sb-rs'), text);
       el.revealSongs.append(button);
     });
 
@@ -815,7 +696,7 @@
     updateAudioBanner();
     if (waiting) return;
 
-    el.revealTitle.textContent = song.title + ' — base créée par ' + creator.avatar + ' ' + creator.name;
+    el.revealTitle.textContent = song.title + ' — base créée par ' + creator.name;
 
     // Ordre d'entrée : le créateur d'abord, puis les autres, un par boucle.
     el.revealSteps.innerHTML = '';
@@ -829,7 +710,8 @@
       const instrument = entry.instrumentId ? GB.INSTRUMENTS[entry.instrumentId] : null;
       step.append(
         create('span', 'rst-n', String(index + 1)),
-        create('span', null, player.avatar + ' ' + player.name + ' ' + (instrument ? instrument.icon : '∅'))
+        GB.avatar.node(player, 'sb-step'),
+        create('span', null, player.name + (instrument ? ' · ' + instrument.label : ''))
       );
       step.title = (index === 0 ? 'Créateur · ' : 'Boucle ' + (index + 1) + ' · ') + (instrument ? instrument.label : 'contribution vide (rien composé)');
       el.revealSteps.append(step);
@@ -839,10 +721,10 @@
     const last = entries[reveal.shown - 1];
     const lastPlayer = game.playerById(last.playerId);
     if (ended) {
-      el.revealStatus.textContent = '🎉 Toutes les chansons ont été entendues — la dernière continue en boucle. Clique sur une chanson pour la réécouter (chacun pour soi).';
+      el.revealStatus.textContent = 'Toutes les chansons ont été entendues — la dernière continue en boucle. Clique sur une chanson pour la réécouter (chacun pour soi).';
     } else if (done) {
       el.revealStatus.textContent =
-        '🔁 Boucle complète : ' + reveal.total + ' couches ensemble, en boucle sans fin. ' +
+        'Boucle complète : ' + reveal.total + ' couches ensemble, en boucle sans fin. ' +
         (host
           ? hasNext ? 'La musique tourne jusqu\'à ce que tu cliques sur « Chanson suivante ».' : 'C\'était la dernière : clique sur « Terminer la partie ».'
           : 'La musique tourne jusqu\'à ce que l\'hôte (' + hostName + ') passe à la suite.');
@@ -871,17 +753,18 @@
       card.style.setProperty('--c', player.color);
       card.classList.toggle('is-human', player.isHuman);
       const head = create('div', 'contribution-head');
-      head.append(create('span', 'contribution-avatar', player.avatar), create('strong', null, player.name));
+      head.append(GB.avatar.node(player, 'sb-contrib'), create('strong', null, player.name));
       const list = create('ul', 'contribution-list');
       const item = create('li');
       const instrument = entry.instrumentId ? GB.INSTRUMENTS[entry.instrumentId] : null;
       item.append(
-        create('span', entry.empty ? 'contribution-instrument empty-note' : 'contribution-instrument', instrument ? instrument.icon + ' ' + instrument.label : '∅ Rien composé'),
+        create('span', entry.empty ? 'contribution-instrument empty-note' : 'contribution-instrument', instrument ? instrument.label : 'Rien composé'),
         create(
           'small',
           null,
           (index === 0 ? 'Création' : 'Ajout n°' + index) + ' · ' +
             (entry.empty ? 'contribution vide (' + (entry.endReason === 'absent' ? 'joueur absent' : 'temps écoulé') + ')' : entry.clip ? 'voix ' + entry.clip.duration.toFixed(1).replace('.', ',') + ' s' : plural(entry.noteCount, 'note', 'notes')) +
+            (!entry.empty && entry.mode && !entry.clip ? ' · ' + ({ baby: 'Baby', beginner: 'Débutant', expert: 'Expert' })[entry.mode] : '') +
             (!entry.empty && entry.endReason === 'timeout' ? ' · sauvegardé au chrono' : '') +
             (!entry.empty && entry.notes.some((note) => note.vowel) ? ' · voyelles ' + entry.notes.slice().sort((a, b) => a.step - b.step).map((note) => (note.vowel || '').toUpperCase()).join(' ') : '')
         )
@@ -898,8 +781,8 @@
     el.revealHostNote.textContent = ended
       ? ''
       : host
-        ? '🎛 Tu contrôles la révélation : la chanson suivante ne démarre que quand tu le décides.'
-        : '🎛 L\'hôte (' + hostName + ') contrôle la révélation : tout le monde entend la même chose au même moment.';
+        ? 'Tu contrôles la révélation : la chanson suivante ne démarre que quand tu le décides.'
+        : 'L\'hôte (' + hostName + ') contrôle la révélation : tout le monde entend la même chose au même moment.';
   }
 
   /** Le navigateur a-t-il suspendu l'audio pendant la révélation ? On le dit et on propose de reprendre. */
@@ -943,7 +826,7 @@
       return;
     }
     const key = phaseKey(state);
-    if (key === lastPhaseKey && (state.phase === 'compose' || state.phase === 'pick' || state.phase === 'listen')) {
+    if (key === lastPhaseKey && state.phase === 'compose') {
       renderGameBar();
       refreshActions();
       return;
@@ -957,6 +840,7 @@
   /* ------------------------------------------------------------------ */
 
   function leaveGame(destination) {
+    stopPregame();
     const wasOnline = game.state.active && game.online.isActive();
     if (wasOnline && GB.online) GB.online.leave();
     if (GB.voiceUI) GB.voiceUI.reset();
@@ -975,38 +859,14 @@
       showSetup();
     });
     el.btnSetupBack.addEventListener('click', () => ui.showScreen('home'));
-    el.btnSetupStart.addEventListener('click', showThemes);
-    el.btnThemesBack.addEventListener('click', () => ui.showScreen('setup'));
-    el.btnThemesStart.addEventListener('click', startFromThemes);
-    el.setupBpm.addEventListener('input', () => {
-      setup.bpm = Number(el.setupBpm.value);
-      el.setupBpmValue.textContent = setup.bpm;
-    });
+    el.btnSetupStart.addEventListener('click', startPregame);
 
     el.setupName.addEventListener('input', () => {
       setup.name = el.setupName.value;
       renderSetup();
     });
-    el.btnToPick.addEventListener('click', () => game.finishListening());
     el.btnValidate.addEventListener('click', () => {
-      if (game.validateTurn()) ui.showToast('Tu es prêt ✅ — contribution verrouillée');
-    });
-
-    el.pick.addEventListener('click', (event) => {
-      const creator = event.target.closest('[data-action="new-instrument"]');
-      if (creator) {
-        GB.instrumentUI.openDialog(null);
-        return;
-      }
-      if (event.target.closest('[data-action="my-sounds"]')) {
-        GB.soundsUI.open();
-        return;
-      }
-      const card = event.target.closest('[data-instrument]');
-      if (!card) return;
-      audio.unlock();
-      const track = game.pickInstrument(card.dataset.instrument);
-      if (track) audio.preview(track.id, GB.INSTRUMENTS[track.instrumentId].kind === 'drums' ? 0 : GB.PREVIEW_ROW);
+      if (game.validateTurn()) ui.showToast('Tu es prêt : contribution verrouillée');
     });
 
     el.btnQuit.addEventListener('click', () => {
@@ -1064,8 +924,8 @@
     el.btnFinalHome.addEventListener('click', () => leaveGame('home'));
 
     game.onChange(onGameChange);
-    GB.instrumentUI.onSaved(() => {
-      if (game.state.active && game.state.phase === 'pick') renderPick();
+    ui.onDifficulty((mode) => {
+      if (game.state.active && game.state.phase === 'compose') game.setMode(mode);
     });
   }
 
@@ -1076,6 +936,16 @@
     },
     showEditorView,
     refreshActions,
+    /** Quitter les phases d'avant-composition (partie locale) : retour à la configuration. */
+    leavePregame() {
+      stopPregame();
+      showSetup();
+    },
+    /** Lance les phases d'avant-composition de la partie de test (utilisé par les tests automatiques). */
+    startLocalPregame(overrides) {
+      Object.assign(setup, overrides || {});
+      startPregame();
+    },
     /** Lance une partie de test local avec ces réglages (utilisé par les tests automatiques, durées courtes comprises). */
     startLocal(overrides) {
       Object.assign(setup, overrides || {});

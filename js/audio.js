@@ -403,31 +403,6 @@
     };
   }
 
-  /** Instrument créé par le joueur : forme d'onde, hauteur, enveloppe, écho, réverbération. */
-  function createCustomSynth(output, settings, meta) {
-    const effects = buildEffects(output, settings);
-    const inner = createVoiceInstrument(
-      meta.id,
-      effects.input,
-      Tone.Synth,
-      {
-        oscillator: { type: settings.wave },
-        envelope: { attack: settings.attack, decay: 0.2, sustain: 0.7, release: settings.release },
-        detune: settings.detune,
-      },
-      settings.release + (settings.reverb > 0.001 ? 0.6 + settings.reverb * 1.6 : 0) + (settings.echo > 0.001 ? 0.8 : 0),
-      0,
-      (row) => GB.getToneNote('piano', row, settings)
-    );
-    return {
-      play: inner.play,
-      dispose() {
-        inner.dispose();
-        effects.nodes.forEach((node) => node.dispose());
-      },
-    };
-  }
-
   /**
    * Trompette : dents de scie (riche en harmoniques) dont le FILTRE s'ouvre pendant l'attaque (le « coup de langue » des cuivres :
    * le son démarre mat puis éclate), attaque courte, tenue franche, puis une bosse d'égalisation vers 1,8 kHz (le « blat »).
@@ -552,13 +527,65 @@
   /**
    * Son importé joué comme instrument. Toutes les notes d'une piste partagent le MÊME tampon décodé
    * (GB.sounds) : une source de lecture légère par note, aucune copie du son.
-   *   - hauteur : vitesse de lecture = fréquence de la note / Do4 (Do4 = son d'origine). Plus aigu = plus court.
-   *     Réglage « Hauteur : toujours l'original » : vitesse 1 sur toutes les lignes.
+   *   - hauteur : Do4 = son d'origine ; chaque demi-ton d'écart décale la HAUTEUR sans changer la VITESSE ni la durée
+   *     (étirement WSOLA + rééchantillonnage, voir js/pitch.js ; résultat gardé en mémoire par son et par hauteur).
+   *     Réglage « Hauteur : toujours l'original » : le son n'est jamais décalé (pratique pour les percussions).
    *   - « Joué en entier » : la note déclenche le son, qui va jusqu'au bout (jamais coupé, même si la note est courte).
    *   - « Coupé à la fin de la note » : le son s'arrête avec la note (fondu de 15 ms) ; trop court, il se joue une fois.
    * Tant que le fichier n'est pas décodé (chargement, ou fichier absent), les notes sont muettes.
    */
   const MAX_SAMPLE_VOICES = 24;
+
+  // Sons déjà décalés (un par son importé et par hauteur) : au plus ~16 millions d'échantillons en mémoire (≈ 64 Mo), les plus anciens oubliés.
+  const shiftedCache = GB.pitch.createCache(16000000);
+  const shiftQueue = []; // calculs de fond : un à la fois, entre deux images
+  let shiftBusy = false;
+
+  /** Buffer d'un son importé décalé de `semitones` demi-tons (calculé à la demande si besoin, puis gardé). null si le fichier n'est pas décodé. */
+  function shiftedBufferFor(hash, semitones) {
+    const tone = GB.sounds.peekBuffer(hash);
+    if (!tone) return null;
+    const original = tone.get();
+    if (!semitones) return original;
+    const key = hash + '|' + semitones;
+    const cached = shiftedCache.get(key);
+    if (cached) return cached;
+    const channels = [];
+    for (let c = 0; c < original.numberOfChannels; c += 1) channels.push(original.getChannelData(c));
+    const shifted = GB.pitch.shift(channels, original.sampleRate, semitones);
+    const buffer = Tone.getContext().createBuffer(shifted.length, original.length, original.sampleRate);
+    shifted.forEach((data, c) => buffer.copyToChannel(data, c));
+    shiftedCache.set(key, buffer, original.length * shifted.length);
+    return buffer;
+  }
+
+  function pumpShiftQueue() {
+    if (shiftBusy) return;
+    shiftBusy = true;
+    const next = () => {
+      const job = shiftQueue.shift();
+      if (!job) {
+        shiftBusy = false;
+        return;
+      }
+      try {
+        shiftedBufferFor(job.hash, job.semitones);
+      } catch (error) {
+        /* tant pis : la note le calculera à la demande */
+      }
+      setTimeout(next, 0);
+    };
+    setTimeout(next, 0);
+  }
+
+  /** Demande le calcul (en arrière-plan) des hauteurs dont ces notes auront besoin, pour que la lecture ne bute jamais dessus. */
+  function warmShifts(hash, semitoneList) {
+    semitoneList.forEach((semitones) => {
+      if (!semitones || shiftedCache.has(hash + '|' + semitones) || shiftQueue.some((job) => job.hash === hash && job.semitones === semitones)) return;
+      shiftQueue.push({ hash, semitones });
+    });
+    if (shiftQueue.length) pumpShiftQueue();
+  }
 
   function createSamplePlayer(output, settings) {
     const ref = settings.sample || {};
@@ -571,9 +598,11 @@
       GB.sounds.ensure(ref.hash); // décode en arrière-plan si besoin
     }
 
-    function rateFor(row) {
-      if (settings.pitched !== 'yes') return 1;
-      return Tone.Frequency(GB.getToneNote('piano', row, settings)).toFrequency() / rootFrequency;
+    /** Demi-tons entre la note de cette ligne et Do4 (0 = son d'origine, ou « toujours l'original »). */
+    function semitonesFor(row) {
+      if (settings.pitched !== 'yes') return 0;
+      const ratio = Tone.Frequency(GB.getToneNote('piano', row, settings)).toFrequency() / rootFrequency;
+      return Math.max(GB.pitch.LIMITS.minSemitones, Math.min(GB.pitch.LIMITS.maxSemitones, Math.round(12 * Math.log2(ratio))));
     }
 
     function trim(now) { // `now` : instant de départ de la nouvelle note
@@ -597,12 +626,10 @@
      */
     function start(row, time, noteSeconds, offset, cap) {
       if (disposed || !ref.hash) return;
-      const tone = GB.sounds.peekBuffer(ref.hash);
-      if (!tone) return;
-      const buffer = tone.get();
+      const buffer = shiftedBufferFor(ref.hash, semitonesFor(row));
+      if (!buffer) return;
       if (offset >= buffer.duration - 0.005) return;
-      const rate = rateFor(row);
-      const natural = (buffer.duration - offset) / rate; // durée réelle d'écoute jusqu'à la fin du fichier
+      const natural = buffer.duration - offset; // durée d'écoute jusqu'à la fin du fichier : la même à toutes les hauteurs
       let seconds = natural;
       if (settings.mode === 'fit') seconds = Math.min(seconds, Math.max(0.03, noteSeconds));
       if (cap) seconds = Math.min(seconds, cap);
@@ -611,7 +638,6 @@
       const src = context.createBufferSource();
       const gain = context.createGain();
       src.buffer = buffer;
-      src.playbackRate.value = rate;
       src.connect(gain);
       Tone.connect(gain, output);
       const end = when + seconds;
@@ -641,16 +667,25 @@
       play(row, time, duration, note, opts) {
         start(row, time, duration, 0, opts && opts.preview ? 1.6 : 0);
       },
+      /** Prépare en arrière-plan les hauteurs des notes de la piste (appelé à chaque synchronisation). */
+      prepare(notes) {
+        if (!ref.hash || !notes || !notes.length) return;
+        const tone = GB.sounds.peekBuffer(ref.hash);
+        if (!tone) {
+          GB.sounds.ensure(ref.hash).then((ready) => ready && !disposed && this.prepare(notes));
+          return;
+        }
+        warmShifts(ref.hash, Array.from(new Set(notes.map((note) => semitonesFor(note.row)))));
+      },
       /** Reprise au milieu d'une boucle : une note déjà commencée avant la position choisie joue la SUITE du son. */
       catchUp(note, position, when) {
         const tone = ref.hash ? GB.sounds.peekBuffer(ref.hash) : null;
         if (!tone) return;
         const elapsed = (position - note.step) * stepSeconds();
         if (elapsed <= 0.001) return;
-        const rate = rateFor(note.row);
         const remainingNote = note.length * stepSeconds() - elapsed;
         if (settings.mode === 'fit' && remainingNote <= 0.02) return;
-        start(note.row, when, remainingNote, elapsed * rate, 0);
+        start(note.row, when, remainingNote, elapsed, 0);
       },
       dispose() {
         disposed = true;
@@ -669,6 +704,132 @@
     };
   }
 
+  /* ------------------------------------------------------------------ */
+  /*  Instrument personnalisé : un petit synthétiseur réglable           */
+  /* ------------------------------------------------------------------ */
+
+  /** Une oscillation : forme standard, ou dessinée (harmoniques), avec plusieurs voix désaccordées si demandé. */
+  function makeOscillator(wave, harmonics, unison, spread) {
+    const base = wave === 'drawn' ? { type: 'custom', partials: harmonics } : { type: wave };
+    if (unison > 1) return new Tone.FatOscillator(Object.assign({}, base, { count: unison, spread }));
+    return new Tone.Oscillator(base);
+  }
+
+  /**
+   * Une voix du synthé personnalisé (même mode d'emploi qu'une Tone.Synth : connect / triggerAttackRelease / dispose) :
+   *   onde 1 (+ onde 2 en option) → mélange → filtre (+ balayage) → enveloppe de volume → sortie.
+   * Le vibrato fait onduler le désaccord des ondes (un oscillateur lent, LFO).
+   */
+  class CustomVoice {
+    constructor(o) {
+      this.o = o;
+      this.nodes = [];
+      this.osc1 = makeOscillator(o.wave, o.harmonics, o.unison, o.spread);
+      this.osc1.detune.value = o.detune;
+      this.mix = new Tone.Gain(1);
+      this.osc1.connect(this.mix);
+      this.nodes.push(this.osc1, this.mix);
+      this.osc2 = null;
+      if (o.wave2 !== 'none' && o.mix2 > 0.001) {
+        this.osc2 = new Tone.Oscillator({ type: o.wave2 });
+        this.osc2.detune.value = o.detune + o.detune2;
+        const level = new Tone.Gain(o.mix2);
+        this.osc2.connect(level);
+        level.connect(this.mix);
+        this.mix.gain.value = 1 / (1 + o.mix2 * 0.6); // évite que le mélange soit plus fort que l'onde seule
+        this.nodes.push(this.osc2, level);
+      }
+      this.lfo = null;
+      if (o.vibrato > 0.001) {
+        const depth = o.vibrato * 60; // jusqu'à ±60 cents
+        this.lfo = new Tone.LFO({ frequency: o.vibratoRate, min: -depth, max: depth }).start();
+        this.lfo.connect(this.osc1.detune);
+        if (this.osc2) this.lfo.connect(this.osc2.detune);
+        this.nodes.push(this.lfo);
+      }
+      this.envelope = new Tone.AmplitudeEnvelope({ attack: o.attack, decay: o.decay, sustain: o.sustain, release: o.release });
+      this.nodes.push(this.envelope);
+      this.filter = null;
+      this.sweep = null;
+      if (o.filterType !== 'none') {
+        const cutoff = GB.synth.cutoffHz(o.cutoff);
+        const sweeping = o.sweep > 0.001;
+        this.filter = new Tone.Filter({ type: o.filterType, frequency: sweeping ? 0 : cutoff, Q: 0.5 + o.resonance * 11, rolloff: -12 });
+        this.mix.connect(this.filter);
+        this.filter.connect(this.envelope);
+        this.nodes.push(this.filter);
+        if (sweeping) {
+          // le filtre démarre « fermé » puis s'ouvre vers la coupure : c'est l'enveloppe de fréquence qui le pilote
+          this.sweep = new Tone.FrequencyEnvelope({ attack: Math.max(0.005, o.attack), decay: o.decay + 0.1, sustain: o.sustain, release: o.release, baseFrequency: cutoff / Math.pow(2, o.sweep), octaves: o.sweep });
+          this.sweep.connect(this.filter.frequency);
+          this.nodes.push(this.sweep);
+        }
+      } else {
+        this.mix.connect(this.envelope);
+      }
+    }
+
+    connect(destination) {
+      this.envelope.connect(destination);
+      return this;
+    }
+
+    triggerAttackRelease(note, duration, time, velocity) {
+      const frequency = Tone.Frequency(note).toFrequency();
+      const stopAt = time + duration + this.o.release + 0.05; // la voix est réutilisée seulement 0,1 s après la fin du relâchement
+      this.osc1.frequency.setValueAtTime(frequency, time);
+      this.osc1.start(time).stop(stopAt);
+      if (this.osc2) {
+        this.osc2.frequency.setValueAtTime(frequency * Math.pow(2, this.o.octave2), time);
+        this.osc2.start(time).stop(stopAt);
+      }
+      if (this.sweep) this.sweep.triggerAttackRelease(duration, time, velocity);
+      this.envelope.triggerAttackRelease(duration, time, velocity);
+    }
+
+    dispose() {
+      this.nodes.forEach((node) => node.dispose());
+    }
+  }
+
+  function createCustomSynth(output, settings, meta) {
+    const o = GB.synth.normalize(settings);
+    const nodes = [];
+    // La chaîne d'effets se construit de la sortie vers l'entrée : écho / réverbération, trémolo, chorus, distorsion.
+    const effects = buildEffects(output, o);
+    let head = effects.input;
+    if (o.tremolo > 0.001) {
+      const tremolo = new Tone.Tremolo({ frequency: o.tremoloRate, depth: o.tremolo }).start();
+      tremolo.connect(head);
+      nodes.push(tremolo);
+      head = tremolo;
+    }
+    if (o.chorus > 0.001) {
+      const chorus = new Tone.Chorus({ frequency: 1.6, delayTime: 3.5, depth: 0.55, wet: Math.min(1, o.chorus) }).start();
+      chorus.connect(head);
+      nodes.push(chorus);
+      head = chorus;
+    }
+    if (o.distortion > 0.001) {
+      const distortion = new Tone.Distortion({ distortion: o.distortion * 0.9, wet: 1 });
+      const trim = new Tone.Gain(1 - o.distortion * 0.45); // la distorsion fait gonfler le niveau : on le ramène
+      distortion.connect(trim);
+      trim.connect(head);
+      nodes.push(distortion, trim);
+      head = distortion;
+    }
+    const tail = o.release + (o.reverb > 0.001 ? 0.6 + o.reverb * 1.6 : 0) + (o.echo > 0.001 ? 0.8 : 0);
+    const inner = createVoiceInstrument(meta.id, head, CustomVoice, o, o.release + 0.1, 0, (row) => GB.getToneNote(meta.id === 'preview' ? 'piano' : meta.id, row, o));
+    return {
+      play: inner.play,
+      dispose() {
+        inner.dispose();
+        nodes.concat(effects.nodes).forEach((node) => node.dispose());
+      },
+      tail,
+    };
+  }
+
   /**
    * Moteurs : chaque moteur transforme des réglages en instrument { play(row, time, durée), dispose() }.
    * Pour brancher plus tard une voix chantée (échantillons, synthèse neuronale, service externe…),
@@ -676,9 +837,9 @@
    */
   const ENGINES = {
     formant: (output, settings, meta) => createFormantVoice(output, settings, meta),
-    custom: (output, settings, meta) => createCustomSynth(output, settings, meta),
     trumpet: (output, settings) => createTrumpet(output, settings),
     flute: (output, settings) => createFlute(output, settings),
+    custom: (output, settings, meta) => createCustomSynth(output, settings, meta),
     clip: (output) => createClipPlayer(output),
     sample: (output, settings) => createSamplePlayer(output, settings),
   };
@@ -759,7 +920,9 @@
         runtimes.delete(track.id);
       }
       if (!runtimes.has(track.id)) runtimes.set(track.id, createRuntime(track));
-      runtimes.get(track.id).channel.volume.value = volumeOf(track);
+      const runtime = runtimes.get(track.id);
+      runtime.channel.volume.value = volumeOf(track);
+      if (runtime.instrument.prepare) runtime.instrument.prepare(track.notes);
     });
 
     applyMutes(tracks);
@@ -1031,27 +1194,53 @@
     },
 
     /**
-     * Joue quelques notes avec des réglages qui ne sont pas (encore) ceux d'une piste (fenêtre de création
-     * d'instrument). `engine` : 'custom' ou 'formant'. L'instrument temporaire est détruit ensuite.
-     * `rows` : lignes de la grille à jouer l'une après l'autre.
+     * Joue quelques notes d'un instrument qui n'est pas (encore) sur une piste : page de préparation, sélecteurs compacts.
+     * Les sons importés sont décodés d'abord. L'instrument temporaire est détruit ensuite. Renvoie false si rien n'est jouable.
      */
-    previewEngine(engine, settings, rows, noteLength, volumeDb) {
-      const factory = ENGINES[engine];
-      if (!factory) return Promise.resolve(false);
-      return audio.unlock().then(() => {
+    previewInstrument(instrumentId, settings, rows, noteLength) {
+      const meta = GB.INSTRUMENTS[instrumentId];
+      if (!meta || meta.kind === 'audio') return Promise.resolve(false);
+      return audio.unlock().then(async () => {
+        const values = settings || GB.instruments.defaultSettings(instrumentId) || {};
+        if (values.sample && values.sample.hash && GB.sounds) {
+          const ready = await GB.sounds.ensure(values.sample.hash);
+          if (!ready) return false;
+        }
         releaseSilence();
-        const normalized = GB.instruments.normalizeEngineSettings(engine, settings);
-        const channel = new Tone.Channel({ volume: (volumeDb === undefined ? -13 : volumeDb) + (normalized.volume || 0) });
+        const channel = new Tone.Channel({ volume: meta.volumeDb + (values.volume || 0) });
         channel.connect(master);
-        const instrument = factory(channel, normalized, { id: 'preview' });
-        const list = rows && rows.length ? rows : [GB.legacyRow(6)];
-        const length = noteLength || 0.45;
-        const start = Tone.now() + 0.02;
-        list.forEach((row, index) => instrument.play(row, start + index * (length + 0.05), length));
+        const instrument = buildInstrument(instrumentId, values, channel);
+        const list = rows && rows.length ? rows : [meta.kind === 'drums' ? 0 : GB.PREVIEW_ROW];
+        const seconds = noteLength || 0.5; // durée d'une note d'essai, en secondes
+        const start = Tone.now() + 0.03;
+        list.forEach((row, index) => instrument.play(row, start + index * (seconds + 0.08), seconds, null, { preview: true }));
         setTimeout(() => {
           instrument.dispose();
           channel.dispose();
-        }, (list.length * (length + 0.05) + 4) * 1000);
+        }, (list.length * (seconds + 0.08) + 4) * 1000);
+        return true;
+      });
+    },
+
+    /**
+     * Joue quelques notes avec des réglages d'instrument personnalisé qui ne sont pas (encore) enregistrés : éditeur d'instrument.
+     * `rows` : lignes de la grille jouées l'une après l'autre. L'instrument temporaire est détruit ensuite.
+     */
+    previewCustom(settings, rows, noteLength) {
+      return audio.unlock().then(() => {
+        releaseSilence();
+        const normalized = GB.synth.normalize(settings);
+        const channel = new Tone.Channel({ volume: -13 + normalized.volume });
+        channel.connect(master);
+        const instrument = createCustomSynth(channel, normalized, { id: 'preview' });
+        const list = rows && rows.length ? rows : [GB.PREVIEW_ROW];
+        const length = noteLength || 0.5;
+        const start = Tone.now() + 0.03;
+        list.forEach((row, index) => instrument.play(row, start + index * (length + 0.06), length));
+        setTimeout(() => {
+          instrument.dispose();
+          channel.dispose();
+        }, (list.length * (length + 0.06) + 6) * 1000);
         return true;
       });
     },

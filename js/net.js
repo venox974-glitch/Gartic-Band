@@ -191,10 +191,10 @@
     /* ------------------------ commandes du protocole ------------------------ */
 
     create(name, max) {
-      return net.send({ t: 'create', name, max });
+      return net.send({ t: 'create', name, max, skin: GB.avatar ? GB.avatar.get() : undefined });
     },
     join(code, name) {
-      return net.send({ t: 'join', code: String(code || '').trim().toUpperCase(), name });
+      return net.send({ t: 'join', code: String(code || '').trim().toUpperCase(), name, skin: GB.avatar ? GB.avatar.get() : undefined });
     },
     configure(patch) {
       return net.send(Object.assign({ t: 'configure' }, patch));
@@ -248,6 +248,44 @@
       }
     },
 
+    /** Envoie des octets (une voix WAV du mode Phone) au serveur de MON salon ; `hash` = SHA-256 hexadécimal de ces octets. */
+    async uploadBytes(hash, bytes) {
+      const session = net.session;
+      const base = net.httpBase();
+      if (!session || !base) return { ok: false, error: 'Pas de connexion au salon.' };
+      const key = session.code + ':' + hash;
+      if (uploaded.has(key)) return { ok: true };
+      try {
+        const response = await fetch(base + '/rooms/' + encodeURIComponent(session.code) + '/sounds/' + hash, {
+          method: 'PUT',
+          headers: { Authorization: 'Bearer ' + session.token, 'Content-Type': 'application/octet-stream' },
+          body: bytes,
+        });
+        if (!response.ok) {
+          let error = 'Le serveur a refusé l\'enregistrement (' + response.status + ').';
+          try {
+            error = (await response.json()).error || error;
+          } catch (parseError) {
+            /* message par défaut */
+          }
+          return { ok: false, error };
+        }
+        uploaded.add(key);
+        return { ok: true };
+      } catch (error) {
+        return { ok: false, error: 'Impossible d\'envoyer l\'enregistrement au serveur.' };
+      }
+    },
+
+    /** Mode Phone : mon maillon du round (texte, pistes de notes ou pistes de voix déjà envoyées). */
+    phoneSubmit(round, link) {
+      return net.send({ t: 'phone-submit', round, link });
+    },
+    /** Mode Phone : révélation, hôte seulement : 'start' | 'next' | 'replay' | 'end'. */
+    phoneReveal(command) {
+      return net.send({ t: 'phone-reveal', command });
+    },
+
     /** Télécharge un son du salon par son empreinte (ArrayBuffer), ou null. Réservé aux joueurs du salon. */
     async fetchSound(hash) {
       const session = net.session;
@@ -265,9 +303,9 @@
     submit(round, contribution) {
       return net.send({ t: 'submit', round, contribution });
     },
-    /** Propositions de thèmes et vote : 'propose' {text} · 'remove' {id} · 'vote-open' {seconds} · 'vote' {id} · 'vote-close' · 'pick' {id} · 'default'. Le serveur décide. */
-    themeCommand(command, payload) {
-      return net.send(Object.assign({}, payload || {}, { t: 'theme-' + command }));
+    /** Phases d'avant-composition : 'propose' {text} · 'vote' {id} · 'prep' {bpm, instrumentId, mode, settings}. Le serveur décide. */
+    preCommand(command, payload) {
+      return net.send(Object.assign({}, payload || {}, { t: 'pre-' + command }));
     },
     /** Révélation finale (hôte seulement, le serveur refuse les autres) : 'start' | 'next' | 'end' | 'replay'. */
     revealCommand(command, index) {

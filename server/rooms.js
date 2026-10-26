@@ -18,7 +18,12 @@
 
 const crypto = require('crypto');
 const Rounds = require('../js/rounds.js'); // même rotation que dans le navigateur
-const Themes = require('../js/themes.js'); // mêmes règles de propositions et de vote que dans le navigateur
+const Modes = require('../js/modes.js'); // registre des modes de jeu (partagé avec le navigateur)
+const Phases = require('../js/phases.js'); // mêmes phases (proposition, vote, préparation) que dans le navigateur
+const Avatar = require('../js/avatar.js'); // validation du personnage (couleur + chapeau) choisi par chaque joueur
+const PhoneRoom = require('./phone-room.js'); // mode Phone (téléphone arabe musical)
+const PhoneRules = require('../js/phone.js');
+const Synth = require('../js/synth.js'); // validation des instruments personnalisés (synthé réglable)
 
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sans I, O, 0, 1 : pas de confusion à l'oral
 const CODE_LENGTH = 5;
@@ -38,32 +43,40 @@ const LIMITS = {
   players: [2, 8],
   bars: [2, 4],
   bpm: [60, 180],
-  roundSeconds: [Rounds.MIN_SECONDS, Rounds.MAX_SECONDS],
+  roundSeconds: Phases.SECONDS_LIMITS.compose,
+  proposeSeconds: Phases.SECONDS_LIMITS.propose,
+  voteSeconds: Phases.SECONDS_LIMITS.vote,
+  prepSeconds: Phases.SECONDS_LIMITS.prep,
+  gameModes: Modes.availableIds(), // seuls les modes jouables du registre js/modes.js sont acceptés
   nameLength: 16,
   stepsPerBar: 4,
   maxNotes: 400,
   maxRow: 35, // 3 octaves chromatiques (lignes 0 à 35)
   maxClipChars: 3 * 1024 * 1024, // WAV en base64 (≈ 2,2 Mo décodé : plus de 40 s à 24 kHz)
   maxClipSeconds: 31,
-  maxSettingsChars: 2000,
+  maxSettingsChars: 6000,
   // Sons importés (fichiers audio des joueurs). Le serveur les garde EN MÉMOIRE, par salon, le temps de la partie.
   sound: {
     maxBytes: 5 * 1024 * 1024, // un fichier
     perPlayer: 8, // fichiers différents envoyés par un joueur
     roomBytes: 40 * 1024 * 1024, // total du salon
+    // Mode Phone : les voix des maillons « chanter » passent par la même route (WAV) ; plus de fichiers, gardés jusqu'à la fin de la partie.
+    phone: { perPlayer: 24, roomBytes: 96 * 1024 * 1024 },
   },
+  phoneRounds: [0, 8], // 0 = autant de rounds que de joueurs
+  singSeconds: PhoneRules.SING_LIMITS,
 };
 
 /** Avatars et couleurs attribués dans l'ordre d'arrivée (les mêmes pour tous les joueurs). */
 const PALETTE = [
-  { avatar: '🧑‍🎤', color: '#FF5C8A' },
-  { avatar: '🦊', color: '#FFB020' },
-  { avatar: '🐙', color: '#2EC4B6' },
-  { avatar: '🦄', color: '#7C5CFF' },
-  { avatar: '🐻', color: '#4DA3FF' },
-  { avatar: '🐸', color: '#7ED957' },
-  { avatar: '🐧', color: '#FF7A45' },
-  { avatar: '🦉', color: '#C45CFF' },
+  { avatar: '', color: '#FF5C8A' },
+  { avatar: '', color: '#D4145A' },
+  { avatar: '', color: '#2EC4B6' },
+  { avatar: '', color: '#7C5CFF' },
+  { avatar: '', color: '#4DA3FF' },
+  { avatar: '', color: '#7ED957' },
+  { avatar: '', color: '#FFD23F' },
+  { avatar: '', color: '#C45CFF' },
 ];
 
 const ROOM_IDLE_MS = 30 * 60 * 1000;
@@ -141,6 +154,9 @@ function validateContribution(raw, bars, hasSound) {
 
   if (notes.length === 0 && !clip) return { ok: false, error: 'Une contribution doit contenir des notes ou un enregistrement.' };
 
+  const mode = raw.mode === undefined || raw.mode === null ? null : raw.mode;
+  if (mode !== null && !Phases.MODES.includes(mode)) return { ok: false, error: 'Difficulté invalide.' };
+
   const settings = raw.settings && typeof raw.settings === 'object' ? raw.settings : null;
   const instrument = raw.instrument && typeof raw.instrument === 'object' ? raw.instrument : null;
   if (JSON.stringify([settings, instrument]).length > LIMITS.maxSettingsChars) return { ok: false, error: 'Réglages d\'instrument trop volumineux.' };
@@ -155,7 +171,17 @@ function validateContribution(raw, bars, hasSound) {
     if (!hasSound || !hasSound(hash)) return { ok: false, code: 'missing-sound', error: 'Le son importé n\'est pas arrivé sur le serveur : réessaie dans un instant.' };
   }
 
-  return { ok: true, value: { instrumentId, instrument, settings, clip, notes } };
+  // Instrument personnalisé : l'identifiant doit être celui des réglages ; le serveur renvoie la version NETTOYÉE (jamais celle du client).
+  let finalSettings = settings;
+  let finalInstrument = instrument;
+  if (instrumentId.startsWith('custom-') || (instrument && instrument.engine === 'custom')) {
+    const checked = Synth.verify(instrumentId, settings);
+    if (!checked.ok) return { ok: false, error: 'Instrument personnalisé invalide.' };
+    finalSettings = checked.settings;
+    finalInstrument = { id: instrumentId, label: checked.settings.label, icon: checked.settings.icon, kind: 'melodic', engine: 'custom', settings: checked.settings };
+  }
+
+  return { ok: true, value: { instrumentId, instrument: finalInstrument, settings: finalSettings, clip, notes, mode } };
 }
 
 /* ------------------------------------------------------------------ */
@@ -167,7 +193,19 @@ class Room {
     this.code = code;
     this.now = now; // horloge (injectable pour les tests)
     this.status = 'lobby'; // 'lobby' | 'playing' | 'finished'
-    this.settings = { max: 4, bars: 4, bpm: 110, roundSeconds: Rounds.DEFAULT_SECONDS };
+    this.settings = {
+      max: 4,
+      bars: 4,
+      bpm: 110, // tempo proposé par défaut à la préparation (chacun choisit ensuite le tempo de SA chanson)
+      roundSeconds: Rounds.DEFAULT_SECONDS,
+      proposeSeconds: Phases.DEFAULT_SECONDS.propose,
+      voteSeconds: Phases.DEFAULT_SECONDS.vote,
+      prepSeconds: Phases.DEFAULT_SECONDS.prep,
+      gameMode: Modes.DEFAULT,
+      phoneRounds: 0, // mode Phone : nombre de rounds (0 = autant que de joueurs, 3 au minimum)
+      singSeconds: PhoneRules.DEFAULT_SECONDS.sing, // mode Phone : durée d'un round « chanter »
+    };
+    this.phone = null; // état du mode Phone (voir server/phone-room.js)
     this.players = []; // { id, name, token, avatar, color, connected, send }
     this.sounds = new Map(); // empreinte SHA-256 -> { data: Buffer, mime, owner: playerId, bytes } : sons importés de CE salon (jamais partagés entre salons)
     this.soundBytes = 0;
@@ -176,7 +214,8 @@ class Room {
     this.plan = []; // plan[round] = [{ playerId, songId, kind }]
     this.round = null; // { index, status, introEnd, deadline, graceEnd, lastEnd, tasks: [{ playerId, songId, kind, status }] }
     this.contributions = [];
-    this.themeBook = Themes.create(); // propositions de thèmes, vote, thème retenu : état officiel du salon
+    this.pre = null; // phases d'avant-composition (proposition, vote, préparation) : état officiel du salon, voir js/phases.js
+    this.theme = null; // thème retenu à la fin du vote : { themeId, text, authorName, source }
     this.reveal = null; // révélation finale, pilotée par l'hôte : { stage: 'waiting'|'song'|'ended', songIndex, seq, startedAt }
     this.playerCounter = 0;
     this.contributionCounter = 0;
@@ -220,14 +259,16 @@ class Room {
         name: entry.name,
         avatar: entry.avatar,
         color: entry.color,
+        skin: entry.skin,
         connected: entry.connected,
         host: entry.id === this.hostId,
       })),
-      songs: this.songs.map((song) => ({ id: song.id, letter: song.letter, creatorId: song.creatorId, title: song.title })),
+      songs: this.songs.map((song) => ({ id: song.id, letter: song.letter, creatorId: song.creatorId, title: song.title, bpm: song.bpm || this.settings.bpm })),
       plan: this.plan,
       round,
-      themes: Themes.view(this.themeBook, time, this.connectedPlayers().map((entry) => entry.id)),
-      theme: this.themeBook.theme,
+      phone: this.phone ? PhoneRoom.view(this) : null,
+      pre: this.pre ? Phases.view(this.pre, time) : null,
+      theme: this.theme || (this.pre && this.pre.book ? this.pre.book.theme || null : null),
       reveal: this.reveal
         ? { stage: this.reveal.stage, songIndex: this.reveal.songIndex, furthest: this.reveal.furthest, seq: this.reveal.seq, elapsedMs: this.reveal.stage === 'song' ? Math.max(0, time - this.reveal.startedAt) : 0 }
         : null,
@@ -284,6 +325,7 @@ class RoomManager {
     this.rooms = new Map();
     this.now = now;
     this.introMs = undefined; // les tests peuvent raccourcir l'annonce
+    this.drawMs = undefined; // ... et l'affichage du tirage au sort (deux joueurs)
   }
 
   newCode() {
@@ -303,7 +345,10 @@ class RoomManager {
   sweep() {
     const limit = this.now() - ROOM_IDLE_MS;
     for (const [code, room] of this.rooms) {
-      if (room.connectedPlayers().length === 0 && room.touched < limit) this.rooms.delete(code);
+      if (room.connectedPlayers().length === 0 && room.touched < limit) {
+        PhoneRoom.purge(room);
+        this.rooms.delete(code);
+      }
     }
   }
 
@@ -324,8 +369,9 @@ class RoomManager {
     room.touched = this.now();
     if (room.sounds.has(hash)) return { ok: true, status: 200, already: true };
     const owned = Array.from(room.sounds.values()).filter((sound) => sound.owner === player.id).length;
-    if (owned >= LIMITS.sound.perPlayer) return { ok: false, status: 429, code: 'limit-player', error: 'Tu as déjà envoyé ' + LIMITS.sound.perPlayer + ' sons dans ce salon : c\'est le maximum.' };
-    if (room.soundBytes + data.length > LIMITS.sound.roomBytes) return { ok: false, status: 507, code: 'limit-room', error: 'Le salon a atteint sa limite de sons.' };
+    const quota = room.settings.gameMode === 'phone' ? LIMITS.sound.phone : { perPlayer: LIMITS.sound.perPlayer, roomBytes: LIMITS.sound.roomBytes };
+    if (owned >= quota.perPlayer) return { ok: false, status: 429, code: 'limit-player', error: 'Tu as déjà envoyé ' + quota.perPlayer + ' sons dans ce salon : c\'est le maximum.' };
+    if (room.soundBytes + data.length > quota.roomBytes) return { ok: false, status: 507, code: 'limit-room', error: 'Le salon a atteint sa limite de sons.' };
     room.sounds.set(hash, { data, mime, owner: player.id, bytes: data.length });
     room.soundBytes += data.length;
     return { ok: true, status: 201, already: false };
@@ -341,7 +387,7 @@ class RoomManager {
     return { ok: true, status: 200, sound };
   }
 
-  addPlayer(room, name, send) {
+  addPlayer(room, name, send, skin) {
     room.playerCounter += 1;
     const index = room.players.length;
     const entry = {
@@ -350,6 +396,7 @@ class RoomManager {
       token: randomToken(),
       avatar: PALETTE[index % PALETTE.length].avatar,
       color: PALETTE[index % PALETTE.length].color,
+      skin: skin ? Avatar.sanitize(skin) : { color: Avatar.COLORS[index % Avatar.COLORS.length].id, hat: 'none' }, // le personnage choisi par le joueur (nettoyé)
       connected: true,
       send,
     };
@@ -358,20 +405,20 @@ class RoomManager {
   }
 
   /** Crée un salon : le créateur en est l'hôte. */
-  create({ name, max }, send) {
+  create({ name, max, skin }, send) {
     const clean = cleanName(name);
     if (!clean) return { ok: false, code: 'bad-name', error: 'Choisis un pseudo (1 à ' + LIMITS.nameLength + ' caractères).' };
     const room = new Room(this.newCode(), this.now);
     room.introMs = this.introMs;
     room.settings.max = clampInt(max, LIMITS.players, 4);
-    const player = this.addPlayer(room, clean, send);
+    const player = this.addPlayer(room, clean, send, skin);
     room.hostId = player.id;
     this.rooms.set(room.code, room);
     return { ok: true, room, player };
   }
 
   /** Rejoint un salon (ou s'y reconnecte avec son jeton). */
-  join({ code, name, token }, send) {
+  join({ code, name, token, skin }, send) {
     const room = this.get(code);
     if (!room) return { ok: false, code: 'no-room', error: 'Aucun salon ne porte ce code. Vérifie-le auprès de l\'hôte.' };
     room.touched = this.now();
@@ -392,7 +439,7 @@ class RoomManager {
     if (room.players.some((entry) => entry.name.toLowerCase() === clean.toLowerCase())) {
       return { ok: false, code: 'name-taken', error: 'Ce pseudo est déjà pris dans ce salon : choisis-en un autre.' };
     }
-    const player = this.addPlayer(room, clean, send);
+    const player = this.addPlayer(room, clean, send, skin);
     return { ok: true, room, player };
   }
 
@@ -441,54 +488,93 @@ class RoomManager {
     if (patch.bars !== undefined) next.bars = clampInt(patch.bars, LIMITS.bars, room.settings.bars);
     if (patch.bpm !== undefined) next.bpm = clampInt(patch.bpm, LIMITS.bpm, room.settings.bpm);
     if (patch.roundSeconds !== undefined) next.roundSeconds = clampInt(patch.roundSeconds, LIMITS.roundSeconds, room.settings.roundSeconds);
+    if (patch.proposeSeconds !== undefined) next.proposeSeconds = clampInt(patch.proposeSeconds, LIMITS.proposeSeconds, room.settings.proposeSeconds);
+    if (patch.voteSeconds !== undefined) next.voteSeconds = clampInt(patch.voteSeconds, LIMITS.voteSeconds, room.settings.voteSeconds);
+    if (patch.prepSeconds !== undefined) next.prepSeconds = clampInt(patch.prepSeconds, LIMITS.prepSeconds, room.settings.prepSeconds);
+    if (patch.phoneRounds !== undefined) next.phoneRounds = clampInt(patch.phoneRounds, LIMITS.phoneRounds, room.settings.phoneRounds);
+    if (patch.singSeconds !== undefined) next.singSeconds = clampInt(patch.singSeconds, LIMITS.singSeconds, room.settings.singSeconds);
+    if (patch.gameMode !== undefined) {
+      if (!LIMITS.gameModes.includes(patch.gameMode)) return { ok: false, code: 'bad-mode', error: 'Ce mode de jeu n\'est pas disponible.' };
+      if (patch.gameMode !== next.gameMode && patch.roundSeconds === undefined) next.roundSeconds = Modes.get(patch.gameMode).roundSeconds.default; // chaque mode a sa durée conseillée (Phone : 5 min)
+      next.gameMode = patch.gameMode;
+    }
     if (next.max < room.players.length) return { ok: false, code: 'too-many', error: 'Il y a déjà ' + room.players.length + ' joueurs dans le salon.' };
     room.settings = next;
     room.touched = this.now();
     return { ok: true };
   }
 
+  /** Contexte des phases d'avant-composition : horloge, joueurs présents, tirage au sort (cryptographique, côté serveur seulement). */
+  preContext(room) {
+    return {
+      now: this.now(),
+      present: room.connectedPlayers().map((entry) => entry.id),
+      rand: () => crypto.randomInt(0, 1000000) / 1000000,
+      hasSound: (hash) => room.sounds.has(hash),
+      defaultBpm: room.settings.bpm,
+    };
+  }
+
   /**
-   * Propositions de thèmes et vote (salon d'attente seulement). L'identité vient de la connexion, jamais du message.
-   *   propose (arg.text) · remove (arg.id) · vote-open (arg.seconds) · vote (arg.id) · vote-close · pick (arg.id) · default
+   * Actions des phases d'avant-composition. L'identité vient de la connexion, jamais du message.
+   *   propose (arg.text) · vote (arg.id) · prep (arg = { bpm, instrumentId, mode, settings })
+   * Après chaque action, on fait avancer les phases : si tout le monde a fini, la page suivante s'ouvre tout de suite.
    */
-  themeCommand(room, playerId, command, arg) {
-    if (room.status !== 'lobby') return { ok: false, code: 'started', error: 'La partie a déjà commencé : le thème est fixé.' };
+  preCommand(room, playerId, command, arg) {
+    if (room.status !== 'playing' || !room.pre || room.pre.stage === 'done') return { ok: false, code: 'bad-state', error: 'Cette étape est terminée.' };
     const player = room.player(playerId);
     if (!player) return { ok: false, code: 'no-player', error: 'Joueur inconnu.' };
-    const book = room.themeBook;
-    const time = this.now();
-    const present = room.connectedPlayers().map((entry) => entry.id);
+    const ctx = this.preContext(room);
     const input = arg && typeof arg === 'object' ? arg : {};
     let result;
-    if (command === 'propose') result = Themes.propose(book, { id: player.id, name: player.name }, typeof input.text === 'string' ? input.text : '');
-    else if (command === 'remove') result = Themes.remove(book, playerId, room.hostId, String(input.id));
-    else if (command === 'vote-open') result = Themes.openVote(book, playerId, room.hostId, input.seconds, time);
-    else if (command === 'vote') result = Themes.cast(book, playerId, String(input.id), time, present);
-    else if (command === 'vote-close') result = Themes.close(book, playerId, room.hostId, present);
-    else if (command === 'pick') result = Themes.pick(book, playerId, room.hostId, String(input.id));
-    else if (command === 'default') result = Themes.useDefault(book, playerId, room.hostId);
+    if (command === 'propose') result = Phases.propose(room.pre, ctx, { id: player.id, name: player.name }, typeof input.text === 'string' ? input.text : '');
+    else if (command === 'vote') result = Phases.vote(room.pre, ctx, playerId, String(input.id));
+    else if (command === 'prep') result = Phases.prepReady(room.pre, ctx, playerId, input);
     else return { ok: false, code: 'unknown', error: 'Commande inconnue.' };
-    if (result.ok) room.touched = time;
-    return result.ok ? { ok: true } : result;
+    if (!result.ok) return result;
+    room.touched = ctx.now;
+    return { ok: true };
   }
 
-  /** Horloge du salon d'attente : clôt le vote quand le temps est écoulé. Renvoie true si quelque chose a changé. */
-  tickLobby(room) {
-    if (room.status !== 'lobby') return false;
-    return Themes.tick(room.themeBook, this.now(), room.connectedPlayers().map((entry) => entry.id));
+  /** Fait avancer les phases d'avant-composition. À la fin de la préparation : thème et tempos figés, le round 1 commence. Renvoie true si l'état a changé. */
+  tickPre(room) {
+    if (room.status !== 'playing' || !room.pre || room.pre.stage === 'done') return false;
+    const events = Phases.tick(room.pre, this.preContext(room));
+    if (events.length === 0) return false;
+    if (room.pre.stage === 'done') {
+      room.theme = room.pre.book.theme;
+      room.songs.forEach((song) => {
+        const prep = room.pre.prep[song.creatorId];
+        song.bpm = prep ? prep.bpm : room.settings.bpm;
+      });
+      room.beginRound(0, null);
+    }
+    room.touched = this.now();
+    return true;
   }
 
-  /** L'hôte lance la partie : le nombre de chansons et de rounds est celui des joueurs présents. */
+  /** L'hôte lance la partie : le nombre de chansons et de rounds est celui des joueurs présents. Commence par la proposition des thèmes. */
   start(room, playerId) {
     if (playerId !== room.hostId) return { ok: false, code: 'not-host', error: 'Seul l\'hôte peut lancer la partie.' };
     if (room.status !== 'lobby') return { ok: false, code: 'started', error: 'La partie a déjà commencé.' };
     room.players = room.players.filter((entry) => entry.connected);
-    if (room.themeBook.vote.status === 'open') return { ok: false, code: 'vote-open', error: 'Clôture le vote avant de lancer la partie.' };
     if (room.players.length < LIMITS.players[0]) return { ok: false, code: 'not-enough', error: 'Il faut au moins ' + LIMITS.players[0] + ' joueurs pour commencer.' };
-    Themes.settle(room.themeBook); // sans choix, le thème par défaut s'applique (et s'affiche comme tel)
+    if (room.settings.gameMode === 'phone') {
+      const phoneRange = Modes.get('phone').players;
+      if (room.players.length < phoneRange[0]) return { ok: false, code: 'not-enough', error: 'Le mode Phone demande au moins ' + phoneRange[0] + ' joueurs.' };
+      room.status = 'playing';
+      PhoneRoom.init(room, room.settings.phoneRounds, this.introMs);
+      room.touched = this.now();
+      return { ok: true };
+    }
     room.status = 'playing';
     room.buildPlan();
-    room.beginRound(0, null);
+    room.pre = Phases.create(
+      room.players.map((entry) => entry.id),
+      this.now(),
+      { propose: room.settings.proposeSeconds, vote: room.settings.voteSeconds, prep: room.settings.prepSeconds },
+      { drawMs: this.drawMs }
+    );
     room.touched = this.now();
     return { ok: true };
   }
@@ -526,6 +612,21 @@ class RoomManager {
     return { ok: true };
   }
 
+  /** Mode Phone : un joueur envoie son maillon (texte, pistes de notes ou pistes de voix déjà envoyées en HTTP). */
+  phoneSubmit(room, playerId, message) {
+    if (!room.phone) return { ok: false, code: 'bad-mode', error: 'Ce n\'est pas une partie Phone.' };
+    const result = PhoneRoom.submit(room, playerId, { round: message.round, link: message.link }, {
+      validateTrack: (raw) => validateContribution(raw, room.settings.bars, (hash) => room.sounds.has(hash)),
+    });
+    if (result.ok) room.touched = this.now();
+    return result;
+  }
+
+  phoneReveal(room, playerId, command) {
+    if (!room.phone) return { ok: false, code: 'bad-mode', error: 'Ce n\'est pas une partie Phone.' };
+    return PhoneRoom.revealCommand(room, playerId, command);
+  }
+
   /** Enregistre une contribution (vide ou non) : une seule par (chanson, joueur), jamais écrasée. */
   commit(room, task, content, endReason) {
     room.contributionCounter += 1;
@@ -545,7 +646,7 @@ class RoomManager {
         endReason,
         noteCount: empty ? 0 : content.notes.length,
       },
-      empty ? { instrumentId: null, instrument: null, settings: null, clip: null, notes: [] } : content
+      empty ? { instrumentId: null, instrument: null, settings: null, clip: null, notes: [], mode: null } : content
     );
     room.contributions.push(contribution);
     task.status = endReason === 'ready' ? 'ready' : endReason;
@@ -593,6 +694,11 @@ class RoomManager {
    */
   tick(room) {
     const out = { changed: false, contributions: [] };
+    if (room.phone) {
+      if (PhoneRoom.tick(room)) out.changed = true;
+      return out;
+    }
+    if (this.tickPre(room)) out.changed = true;
     if (room.status !== 'playing' || !room.round) return out;
     for (let guard = 0; guard < 16; guard += 1) {
       const info = room.round;
@@ -653,4 +759,4 @@ class RoomManager {
   }
 }
 
-module.exports = { RoomManager, Room, validateContribution, LIMITS, PALETTE, CODE_ALPHABET, CODE_LENGTH, cleanName };
+module.exports = { RoomManager, Room, PhoneRoom, validateContribution, LIMITS, PALETTE, CODE_ALPHABET, CODE_LENGTH, cleanName };

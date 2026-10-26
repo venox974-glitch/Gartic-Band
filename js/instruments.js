@@ -1,15 +1,15 @@
 /**
- * GARTIC BANDE — registre des instruments : réglages, instruments personnalisés, instantanés.
+ * GARTIC BANDE — registre des instruments : réglages, sons importés, instantanés.
  *
- * Trois familles d'instruments :
- *   - de base      piano, synthé, basse, lead, batterie (aucun réglage)
+ * Quatre familles d'instruments :
+ *   - de base      piano, synthé, basse, lead, batterie, trompette, flûte
  *   - voix         « vox » (voix synthétique, moteur 'formant') et « mic » (voix enregistrée, moteur 'clip')
- *   - personnalisés  créés par le joueur : un nom + des réglages (moteur 'custom')
+ *   - sons importés  « Mes sons » : un fichier du joueur joué comme un instrument (moteur 'sample')
+ *   - personnalisés  « Mes instruments » : un synthétiseur réglé par le joueur (moteur 'custom', voir js/synth.js)
  *
- * Chaque piste garde une COPIE des réglages utilisés (`track.settings`) : modifier ou supprimer un
- * instrument personnalisé plus tard ne change donc jamais le son d'une couche déjà posée.
+ * Chaque piste garde une COPIE des réglages utilisés (`track.settings`).
  * Les contributions embarquent aussi un « instantané » (nom, icône, moteur, réglages) :
- * c'est ce qui permettra de rejouer une contribution reçue d'un autre joueur (multijoueur).
+ * c'est ce qui permet de rejouer une contribution reçue d'un autre joueur (multijoueur).
  *
  * Ce module ne dépend ni du DOM ni de Tone.js. La liste des champs réglables (SCHEMAS) sert
  * à construire automatiquement les curseurs de l'interface.
@@ -17,21 +17,13 @@
 (function (GB) {
   'use strict';
 
-  const STORAGE_KEY = 'gartic-bande.instruments.v1';
-  const MAX_CUSTOM = 24;
   const NAME_MAX = 20;
 
-  const WAVES = [
-    { value: 'sine', label: 'Sinus' },
-    { value: 'square', label: 'Carrée' },
-    { value: 'triangle', label: 'Triangle' },
-    { value: 'sawtooth', label: 'Dents de scie' },
-  ];
   const VOWELS = ['a', 'e', 'i', 'o', 'u', 'ou'].map((value) => ({ value, label: value.toUpperCase() }));
 
   /**
    * Description des réglages de chaque moteur. `type` : 'range' (curseur) ou 'choice' (boutons).
-   * Le moteur 'formant' est la voix synthétique ; 'custom' sert aux instruments créés par le joueur.
+   * Le moteur 'formant' est la voix synthétique.
    */
   const SCHEMAS = {
     formant: [
@@ -42,22 +34,13 @@
       { key: 'octave', label: 'Octave', type: 'range', min: -2, max: 2, step: 1, def: 0, format: 'signed' },
       { key: 'volume', label: 'Volume', type: 'range', min: -24, max: 6, step: 1, def: 0, format: 'db' },
     ],
-    custom: [
-      { key: 'wave', label: 'Forme d\'onde', type: 'choice', options: WAVES, def: 'sawtooth' },
-      { key: 'octave', label: 'Octave', type: 'range', min: -2, max: 2, step: 1, def: 0, format: 'signed' },
-      { key: 'detune', label: 'Accordage fin', type: 'range', min: -100, max: 100, step: 5, def: 0, format: 'cents' },
-      { key: 'volume', label: 'Volume', type: 'range', min: -24, max: 6, step: 1, def: 0, format: 'db' },
-      { key: 'attack', label: 'Attaque', type: 'range', min: 0.002, max: 1.5, step: 0.002, def: 0.02, format: 'seconds' },
-      { key: 'release', label: 'Relâchement', type: 'range', min: 0.02, max: 3, step: 0.02, def: 0.3, format: 'seconds' },
-      { key: 'reverb', label: 'Réverbération', type: 'range', min: 0, max: 1, step: 0.05, def: 0, format: 'percent' },
-      { key: 'echo', label: 'Écho', type: 'range', min: 0, max: 1, step: 0.05, def: 0, format: 'percent' },
-    ],
   };
+  // Instrument personnalisé : la liste des réglages vient de js/synth.js (partagée avec le serveur).
+  SCHEMAS.custom = GB.synth.FIELDS;
 
   /**
-   * Son importé (« Mes sons ») joué comme instrument. La hauteur de la note change la VITESSE de lecture
-   * (comme un échantillonneur d'autrefois) : plus aigu = plus rapide donc plus court, plus grave = plus lent donc plus long.
-   * Do4 est la hauteur d'origine du fichier. Le mode règle ce que devient la durée de la note.
+   * Son importé (« Mes sons ») joué comme instrument. La hauteur de la note décale la HAUTEUR du son SANS changer sa vitesse
+   * ni sa durée (voir js/pitch.js). Do4 est la hauteur d'origine du fichier. Le mode règle ce que devient la durée de la note.
    */
   SCHEMAS.sample = [
     {
@@ -91,8 +74,6 @@
   ];
   SCHEMAS.flute = SCHEMAS.trumpet.map((field) => Object.assign({}, field));
 
-  const ICONS = ['🎛', '🔔', '🎷', '🎺', '🎻', '🪕', '🪗', '🛸', '🌊', '🔥', '❄️', '🍭'];
-
   function formatValue(field, value) {
     switch (field.format) {
       case 'percent':
@@ -105,6 +86,12 @@
         return (value > 0 ? '+' : '') + value + ' ¢';
       case 'seconds':
         return value < 1 ? Math.round(value * 1000) + ' ms' : value.toFixed(2) + ' s';
+      case 'cutoff':
+        return Math.round(GB.synth.cutoffHz(value) / 10) * 10 + ' Hz';
+      case 'octaves':
+        return value === 0 ? 'aucun' : '+' + value.toFixed(1) + ' oct.';
+      case 'hz':
+        return value + ' Hz';
       default:
         return String(value);
     }
@@ -118,6 +105,7 @@
   function normalize(engine, raw) {
     const schema = SCHEMAS[engine];
     if (!schema) return null;
+    if (engine === 'custom') return GB.synth.normalize(raw);
     const source = raw && typeof raw === 'object' ? raw : {};
     const out = {};
     schema.forEach((field) => {
@@ -150,57 +138,8 @@
     };
   }
 
-  /* ------------------------------------------------------------------ */
-  /*  Instruments personnalisés                                          */
-  /* ------------------------------------------------------------------ */
-
-  let customCounter = 0;
-  const hidden = new Set(); // supprimés de la liste, mais gardés en mémoire pour les pistes qui les utilisent
-
-  function readStorage() {
-    try {
-      const text = window.localStorage.getItem(STORAGE_KEY);
-      const data = text ? JSON.parse(text) : [];
-      return Array.isArray(data) ? data : [];
-    } catch (error) {
-      return [];
-    }
-  }
-
-  function writeStorage() {
-    try {
-      const list = instruments.customList().map((meta) => ({ id: meta.id, label: meta.label, icon: meta.icon, settings: meta.settings }));
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-      return true;
-    } catch (error) {
-      return false; // stockage indisponible (navigation privée…) : l'instrument reste utilisable pendant la session
-    }
-  }
-
   function cleanName(name) {
     return String(name === undefined || name === null ? '' : name).replace(/\s+/g, ' ').trim().slice(0, NAME_MAX);
-  }
-
-  function registerCustom(def) {
-    const settings = normalize('custom', def.settings);
-    const meta = {
-      id: def.id,
-      label: cleanName(def.label) || 'Instrument',
-      icon: def.icon || '🎛',
-      kind: 'melodic',
-      engine: 'custom',
-      custom: true,
-      octaveShift: 0,
-      defaultLength: 1,
-      resizable: true,
-      volumeDb: -13,
-      settings,
-    };
-    GB.INSTRUMENTS[meta.id] = meta;
-    const number = Number(String(meta.id).replace(/\D+/g, ''));
-    if (Number.isFinite(number)) customCounter = Math.max(customCounter, number);
-    hidden.delete(meta.id);
-    return meta;
   }
 
   /** Identifiant d'un instrument « son importé » : déduit de l'empreinte (deux joueurs qui ont le même fichier ont le même id). */
@@ -217,7 +156,7 @@
     const meta = {
       id,
       label: cleanName(ref.name) || 'Son',
-      icon: '🎧',
+      icon: 'ins-sample',
       kind: 'melodic',
       engine: 'sample',
       sample: true,
@@ -240,6 +179,53 @@
 
   const sampleHidden = new Set(); // sons importés connus (couches, contributions) mais pas dans la liste de ce joueur
 
+  /* ------------------------------------------------------------------ */
+  /*  Instruments personnalisés (synthé réglable)                        */
+  /* ------------------------------------------------------------------ */
+
+  const STORAGE_KEY = 'gartic-bande.synths.v1';
+  const customHidden = new Set(); // supprimés / remplacés / reçus d'un autre joueur : connus mais pas dans MA liste
+
+  function readStorage() {
+    try {
+      const data = JSON.parse(window.localStorage.getItem(STORAGE_KEY) || '[]');
+      return Array.isArray(data) ? data : [];
+    } catch (error) {
+      return [];
+    }
+  }
+
+  function writeStorage() {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(instruments.customList().map((meta) => meta.settings)));
+      return true;
+    } catch (error) {
+      return false; // stockage indisponible (navigation privée…) : l'instrument reste utilisable pendant la session
+    }
+  }
+
+  /** Déclare un instrument personnalisé (ou le retrouve) à partir de ses réglages. L'identifiant est calculé, jamais choisi. */
+  function registerCustom(rawSettings) {
+    const settings = GB.synth.normalize(rawSettings);
+    const id = GB.synth.idOf(settings);
+    if (GB.INSTRUMENTS[id]) return GB.INSTRUMENTS[id];
+    const meta = {
+      id,
+      label: settings.label,
+      icon: settings.icon,
+      kind: 'melodic',
+      engine: 'custom',
+      custom: true,
+      octaveShift: 0,
+      defaultLength: 1,
+      resizable: true,
+      volumeDb: -13,
+      settings,
+    };
+    GB.INSTRUMENTS[id] = meta;
+    return meta;
+  }
+
   const instruments = {
     SCHEMAS,
     sampleIdOf,
@@ -255,26 +241,67 @@
     hideSample(instrumentId) {
       if (GB.INSTRUMENTS[instrumentId] && GB.INSTRUMENTS[instrumentId].sample) sampleHidden.add(instrumentId);
     },
-    WAVES,
-    ICONS,
     NAME_MAX,
-    MAX_CUSTOM,
     formatValue,
 
-    /** Charge les instruments sauvegardés dans ce navigateur (appelé au démarrage). */
+    /** Charge les instruments personnalisés sauvegardés dans ce navigateur (appelé au démarrage). */
     load() {
       readStorage().forEach((entry) => {
-        if (entry && typeof entry.id === 'string' && /^custom-\d+$/.test(entry.id)) registerCustom(entry);
+        const meta = registerCustom(entry);
+        customHidden.delete(meta.id);
       });
     },
 
-    /** Les instruments personnalisés visibles dans les listes. */
+    /** Mes instruments personnalisés (ceux qui apparaissent dans les listes). */
     customList() {
-      return Object.values(GB.INSTRUMENTS).filter((meta) => meta.custom && !hidden.has(meta.id));
+      return Object.values(GB.INSTRUMENTS).filter((meta) => meta.custom && !customHidden.has(meta.id));
     },
 
-    /** Tous les instruments proposés au joueur, dans l'ordre : base, voix, personnalisés. */
+    /**
+     * Enregistre un instrument personnalisé. `previousId` : l'instrument modifié (il est retiré de la liste, les couches qui
+     * l'utilisent gardent leur son). Renvoie { ok, meta, saved } ou { ok: false, error }.
+     */
+    saveCustom(rawSettings, previousId) {
+      const settings = GB.synth.normalize(rawSettings);
+      if (!cleanName(rawSettings && rawSettings.label)) return { ok: false, error: 'Donne un nom à ton instrument.' };
+      const id = GB.synth.idOf(settings);
+      const clash = instruments.customList().some((meta) => meta.id !== id && meta.id !== previousId && meta.label.toLowerCase() === settings.label.toLowerCase());
+      if (clash) return { ok: false, error: 'Un de tes instruments porte déjà ce nom : choisis-en un autre.' };
+      const isNew = !previousId || !GB.INSTRUMENTS[previousId];
+      if (isNew && !GB.INSTRUMENTS[id] && instruments.customList().length >= GB.synth.MAX_CUSTOM) {
+        return { ok: false, error: 'Tu as atteint le maximum de ' + GB.synth.MAX_CUSTOM + ' instruments personnalisés : supprime-en un.' };
+      }
+      if (previousId && previousId !== id && GB.INSTRUMENTS[previousId] && GB.INSTRUMENTS[previousId].custom) customHidden.add(previousId);
+      const meta = registerCustom(settings);
+      customHidden.delete(meta.id);
+      return { ok: true, meta, saved: writeStorage() };
+    },
+
+    /** « Supprime » un instrument personnalisé : il disparaît des listes, les couches qui l'utilisent gardent leur son. */
+    deleteCustom(instrumentId) {
+      const meta = GB.INSTRUMENTS[instrumentId];
+      if (!meta || !meta.custom) return false;
+      customHidden.add(instrumentId);
+      writeStorage();
+      return true;
+    },
+
+    /**
+     * Retrouve (ou déclare) l'instrument personnalisé d'un autre joueur à partir de son identifiant et de ses réglages.
+     * Refuse tout ce qui n'est pas cohérent (identifiant ≠ empreinte des réglages). Il n'est pas ajouté à MA liste.
+     */
+    ensureCustom(instrumentId, settings) {
+      if (GB.INSTRUMENTS[instrumentId]) return Boolean(GB.INSTRUMENTS[instrumentId].custom);
+      const checked = GB.synth.verify(instrumentId, settings);
+      if (!checked.ok) return false;
+      const meta = registerCustom(checked.settings);
+      customHidden.add(meta.id);
+      return true;
+    },
+
+    /** Les instruments proposés au joueur (ceux qu'il a équipés dans le Casier), dans l'ordre : base, trompette et flûte, voix, mes instruments, sons importés. */
     pickable() {
+      if (GB.locker) return GB.locker.equipped(); // seuls les sons ÉQUIPÉS dans le Casier sont proposés
       return GB.INSTRUMENT_ORDER.concat(['trumpet', 'flute', 'vox', 'mic'], instruments.customList().map((meta) => meta.id), instruments.sampleList().map((meta) => meta.id));
     },
 
@@ -293,7 +320,7 @@
       const meta = GB.INSTRUMENTS[instrumentId];
       const engine = instruments.settingsEngine(instrumentId);
       if (!meta || !engine) return null;
-      return normalize(engine, meta.custom || meta.sample ? meta.settings : {});
+      return normalize(engine, meta.sample || meta.custom ? meta.settings : {});
     },
 
     /** Réglages par défaut / normalisés d'un moteur (sans passer par un instrument). */
@@ -308,31 +335,6 @@
     normalizeSettings(instrumentId, raw) {
       const engine = instruments.settingsEngine(instrumentId);
       return engine ? normalize(engine, raw) : null;
-    },
-
-    /** Crée ou modifie un instrument personnalisé. Renvoie { ok, meta } ou { ok: false, error }. */
-    saveCustom({ id, label, icon, settings }) {
-      const name = cleanName(label);
-      if (!name) return { ok: false, error: 'Donne un nom à ton instrument.' };
-      const clash = instruments.customList().some((meta) => meta.id !== id && meta.label.toLowerCase() === name.toLowerCase());
-      if (clash) return { ok: false, error: 'Un instrument porte déjà ce nom : choisis-en un autre.' };
-      const isNew = !id || !GB.INSTRUMENTS[id];
-      if (isNew && instruments.customList().length >= MAX_CUSTOM) {
-        return { ok: false, error: 'Tu as atteint le maximum de ' + MAX_CUSTOM + ' instruments personnalisés.' };
-      }
-      const finalId = isNew ? 'custom-' + (customCounter + 1) : id;
-      const meta = registerCustom({ id: finalId, label: name, icon, settings });
-      const saved = writeStorage();
-      return { ok: true, meta, saved };
-    },
-
-    /** « Supprime » un instrument personnalisé : il disparaît des listes, les pistes qui l'utilisent gardent leur son. */
-    deleteCustom(instrumentId) {
-      const meta = GB.INSTRUMENTS[instrumentId];
-      if (!meta || !meta.custom) return false;
-      hidden.add(instrumentId);
-      writeStorage();
-      return true;
     },
 
     /**
@@ -351,7 +353,7 @@
       };
     },
 
-    /** Réenregistre un instrument personnalisé inconnu à partir d'un instantané (contribution reçue). */
+    /** Réenregistre un son importé inconnu à partir d'un instantané (contribution reçue). */
     ensure(snapshot) {
       if (!snapshot || GB.INSTRUMENTS[snapshot.id]) return Boolean(snapshot && GB.INSTRUMENTS[snapshot.id]);
       if (snapshot.engine === 'sample') {
@@ -361,12 +363,11 @@
         sampleHidden.add(snapshot.id); // utilisable, mais pas ajouté à la liste de ce joueur
         return true;
       }
-      if (snapshot.engine !== 'custom' || !/^custom-\d+$/.test(snapshot.id)) return false;
-      registerCustom({ id: snapshot.id, label: snapshot.label, icon: snapshot.icon, settings: snapshot.settings });
-      hidden.add(snapshot.id); // utilisable, mais pas ajouté à la liste de ce joueur
-      return true;
+      if (snapshot.engine === 'custom') return instruments.ensureCustom(snapshot.id, snapshot.settings);
+      return false;
     },
   };
 
   GB.instruments = instruments;
+  instruments.load();
 })((window.GB = window.GB || {}));

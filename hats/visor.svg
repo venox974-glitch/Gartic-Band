@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1080">
+  <title>Visière</title>
+  <!-- dessin « Piano Among Us » remonté de 131 pour suivre le visage du personnage (tête à y = 266) -->
+  <g transform="translate(0 -131)" stroke-linejoin="round" stroke-width="36">
+    <path d="M190 558.331 C190 432.204 346.7 329.958 540 329.958 C733.3 329.958 890 432.204 890 558.331 C890 684.458 733.3 786.704 540 786.704 C346.7 786.704 190 684.458 190 558.331 Z" fill="#0071bc" stroke="#20123f"/>
+    <path d="M316.948 527.756 C316.948 483.991 362.589 448.512 418.89 448.512 C475.191 448.512 520.832 483.991 520.832 527.756 C520.832 571.522 475.191 607.001 418.89 607.001 C362.589 607.001 316.948 571.522 316.948 527.756 Z" fill="#29abe2" stroke="#29abe2"/>
+  </g>
+</svg>

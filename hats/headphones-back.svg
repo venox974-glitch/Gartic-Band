@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1080">
+<style>
+      .cls-1{fill:#0071bc;stroke:#20123f;stroke-width:36;stroke-linejoin:round}
+      .cls-2{fill:url(#linear-gradient-1);stroke:#20123f;stroke-width:36;stroke-linecap:round;stroke-linejoin:round}
+      .cls-3{fill:#e6e6e6;stroke:#20123f;stroke-width:36;stroke-linecap:round;stroke-linejoin:round}
+      .cls-4{fill:none;stroke:#20123f;stroke-width:36;stroke-linecap:round;stroke-linejoin:round}
+      .cls-5{fill:#20123f;stroke:#20123f;stroke-width:20;stroke-linecap:round;stroke-linejoin:round}
+      .cls-6{fill:none;stroke:#20123f;stroke-width:36;stroke-linejoin:round}
+    </style>
+<path d="M36.043 620.409 C36.043 497.074 261.096 397.092 538.713 397.092 C816.33 397.092 1041.383 497.074 1041.383 620.409 C1041.383 743.744 816.33 843.726 538.713 843.726 C261.096 843.726 36.043 743.744 36.043 620.409 Z" class="cls-1"/>
+</svg>

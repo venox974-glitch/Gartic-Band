@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="180" height="180" viewBox="0 0 180 180">
+  <title>synth.svg</title>
+  <g id="Layer_1" data-name="Layer 1">
+    <path d="M28 44 L152 44 C156.418 44 160 47.582 160 52 L160 128 C160 132.418 156.418 136 152 136 L28 136 C23.582 136 20 132.418 20 128 L20 52 C20 47.582 23.582 44 28 44 Z" fill="#9b6bff" stroke="#20123f" stroke-width="12" stroke-linejoin="round"/>
+    <path d="M36 58 L144 58 L144 92 L36 92 Z" fill="#ffffff" stroke="#20123f" stroke-width="8"/>
+    <path d="M46 75 C53.333 64.333 60.667 64.333 68 75 C75.333 85.667 82.667 85.667 90 75 C97.333 64.333 104.667 64.333 112 75 C119.333 85.667 126.667 85.667 134 75" fill="none" stroke="#ff4f9a" stroke-width="7" stroke-linecap="round"/>
+    <path d="M57 115 C57 119.971 52.971 124 48 124 C43.029 124 39 119.971 39 115 C39 110.029 43.029 106 48 106 C52.971 106 57 110.029 57 115 Z" fill="#ffd23f" stroke="#20123f" stroke-width="6"/>
+    <path d="M85 115 C85 119.971 80.971 124 76 124 C71.029 124 67 119.971 67 115 C67 110.029 71.029 106 76 106 C80.971 106 85 110.029 85 115 Z" fill="#27e0a8" stroke="#20123f" stroke-width="6"/>
+    <path d="M113 115 C113 119.971 108.971 124 104 124 C99.029 124 95 119.971 95 115 C95 110.029 99.029 106 104 106 C108.971 106 113 110.029 113 115 Z" fill="#35b8ff" stroke="#20123f" stroke-width="6"/>
+    <path d="M141 115 C141 119.971 136.971 124 132 124 C127.029 124 123 119.971 123 115 C123 110.029 127.029 106 132 106 C136.971 106 141 110.029 141 115 Z" fill="#ff4f9a" stroke="#20123f" stroke-width="6"/>
+  </g>
+</svg>

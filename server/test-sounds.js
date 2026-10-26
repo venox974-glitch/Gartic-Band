@@ -19,6 +19,20 @@ function check(name, ok, detail) {
   }
 }
 
+
+/** Joue les phases d'avant-composition (proposition, vote, préparation) puis attend le round 1. */
+async function playPregame(clients) {
+  const lastRoom = (c) => c.messages.filter((m) => m.room).map((m) => m.room).pop();
+  clients.forEach((c) => c.send({ t: 'pre-propose', text: 'Idée de ' + c.name }));
+  if (clients.length > 2) {
+    await Promise.all(clients.map((c) => c.wait('room', (m) => m.room.pre && m.room.pre.stage === 'vote')));
+    clients.forEach((c) => c.send({ t: 'pre-vote', id: lastRoom(c).pre.book.themes.find((th) => th.authorId !== c.id).id }));
+  }
+  await Promise.all(clients.map((c) => c.wait('room', (m) => m.room.pre && m.room.pre.stage === 'prep', 0, 9000)));
+  clients.forEach((c) => c.send({ t: 'pre-prep', bpm: 100, instrumentId: 'piano', mode: 'expert' }));
+  await Promise.all(clients.map((c) => c.wait('room', (m) => m.room.round && m.room.pre && m.room.pre.stage === 'done', 0, 9000)));
+}
+
 class Client {
   constructor(port, name) {
     this.name = name;
@@ -107,6 +121,7 @@ async function main() {
   const port = server.address().port;
   const base = 'http://127.0.0.1:' + port;
   manager.introMs = 100;
+  manager.drawMs = 300;
   const put = (code, hash, token, body) => fetch(base + '/rooms/' + code + '/sounds/' + hash, { method: 'PUT', headers: token ? { Authorization: 'Bearer ' + token } : {}, body });
   const get = (code, hash, token) => fetch(base + '/rooms/' + code + '/sounds/' + hash, { headers: token ? { Authorization: 'Bearer ' + token } : {} });
 
@@ -163,6 +178,7 @@ async function main() {
   alice.send({ t: 'start' });
   await alice.wait('started');
   await bob.wait('started');
+  await playPregame([alice, bob]);
   for (let i = 0; i < 40 && manager.get(codeA).round.status !== 'working'; i += 1) await sleep(100);
   const unknown = sha(Buffer.from('jamais envoye'));
   alice.messages.length = 0;

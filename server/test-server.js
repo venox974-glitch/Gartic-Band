@@ -72,6 +72,22 @@ class Client {
 }
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** Joue les phases d'avant-composition (proposition, vote, préparation) avec de vrais clients, puis attend l'annonce du round 1. */
+async function playPregame(clients, options = {}) {
+  const lastRoom = (c) => c.messages.filter((m) => m.t === 'room' || m.t === 'started' || m.t === 'welcome').map((m) => m.room).pop();
+  clients.forEach((c) => c.send({ t: 'pre-propose', text: 'Idée de ' + c.name }));
+  if (clients.length > 2) {
+    await Promise.all(clients.map((c) => c.wait('room', (m) => m.room.pre && m.room.pre.stage === 'vote')));
+    clients.forEach((c) => {
+      const option = lastRoom(c).pre.book.themes.find((theme) => theme.authorId !== c.id);
+      c.send({ t: 'pre-vote', id: option.id });
+    });
+  }
+  await Promise.all(clients.map((c) => c.wait('room', (m) => m.room.pre && m.room.pre.stage === 'prep', 0, 9000)));
+  clients.forEach((c, index) => c.send({ t: 'pre-prep', bpm: options.bpm || 100 + index * 10, instrumentId: 'piano', mode: 'expert' }));
+  await Promise.all(clients.map((c) => c.wait('room', (m) => m.room.round && m.room.pre && m.room.pre.stage === 'done', 0, 9000)));
+}
 const goodContribution = (extra) => Object.assign({ instrumentId: 'piano', instrument: { id: 'piano' }, settings: null, notes: [{ step: 0, row: 3, length: 1 }] }, extra);
 
 function get(port, path) {
@@ -86,6 +102,7 @@ function get(port, path) {
 
 async function main() {
   manager.introMs = 150; // annonce de round raccourcie pour les tests
+  manager.drawMs = 300; // tirage au sort à deux joueurs : affichage raccourci
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const port = server.address().port;
 
@@ -155,12 +172,16 @@ async function main() {
   const roundOf = (client, from = 0) => client.messages.slice(from).filter((m) => m.t === 'room' || m.t === 'started').map((m) => m.room).filter((r) => r.round).pop();
   const started = await host.request({ t: 'start' }, 'started');
   await Promise.all([bob.wait('started'), carol.wait('started')]);
+  host.id = ids.Alice; bob.id = ids.Bob; carol.id = ids.Carol;
+  check('G0 au lancement, la partie commence par la proposition des thèmes (pas par le round 1)', started.room.status === 'playing' && started.room.pre.stage === 'propose' && started.room.round === null);
+  await playPregame([host, bob, carol]);
   const plan = started.room.plan;
   check('G1 3 chansons, chacune avec son créateur', started.room.songs.length === 3 && started.room.songs.map((s) => s.creatorId).join() === [ids.Alice, ids.Bob, ids.Carol].join());
   check('G2 3 rounds de 3 tâches (créations puis ajouts)', plan.length === 3 && plan.every((r) => r.length === 3) && plan[0].every((t) => t.kind === 'create') && plan[1].concat(plan[2]).every((t) => t.kind === 'add'));
   check('G3 rotation : chaque round, 3 chansons différentes ; jamais sa propre chanson après le round 1', plan.every((r) => new Set(r.map((t) => t.songId)).size === 3) && plan.slice(1).every((r) => r.every((t) => started.room.songs.find((s) => s.id === t.songId).creatorId !== t.playerId)));
   check('G3b chaque joueur reçoit 3 chansons différentes en 3 rounds', [ids.Alice, ids.Bob, ids.Carol].every((id) => new Set(plan.map((r) => r.find((t) => t.playerId === id).songId)).size === 3));
-  check('G3c la vue annonce le round 1 (annonce, durée du chrono, 3 tâches « working »)', started.room.round.index === 0 && started.room.round.status === 'intro' && started.room.round.durationMs === 60000 && started.room.round.tasks.every((t) => t.status === 'working'));
+  const firstRound = roundOf(host).round;
+  check('G3c la vue annonce le round 1 (annonce, durée du chrono, 3 tâches « working »)', firstRound.index === 0 && firstRound.status === 'intro' && firstRound.durationMs === 60000 && firstRound.tasks.every((t) => t.status === 'working'));
   const late = new Client(port, 'late'); await late.ready;
   check('G4 on ne rejoint plus une partie commencée', (await late.expectError({ t: 'join', code, name: 'Dave' }, 'started')).code === 'started');
   late.close();
@@ -227,6 +248,8 @@ async function main() {
     if (seconds) gameRoom.settings.roundSeconds = seconds;
     await clients[0].request({ t: 'start' }, 'started');
     await Promise.all(clients.slice(1).map((c) => c.wait('started')));
+    clients.forEach((c, i) => { c.id = ws[i].you.id; });
+    await playPregame(clients);
     return { clients, ws, room: gameRoom, code: w0.room.code };
   };
   const untilWorking = async (g) => { for (let i = 0; i < 40 && g.room.round.status !== 'working'; i += 1) await sleep(100); };
@@ -354,6 +377,18 @@ async function main() {
   check('S2 les scripts sont servis', (await get(port, '/js/game.js')).status === 200);
   check('S3 le dossier server/ n\'est pas servi', (await get(port, '/server/rooms.js')).status === 404 && (await get(port, '/server/package.json')).status === 404);
   check('S4 pas de remontée de dossier', (await get(port, '/js/..%2f..%2fetc%2fpasswd')).status === 404 && (await get(port, '/../server/server.js')).status === 404);
+  const skinHost = new Client(port, 'Skin');
+  await skinHost.ready;
+  const skinWelcome = await skinHost.request({ t: 'create', name: 'Skin', max: 3, skin: { color: 'blue', hat: 'wizard' } }, 'welcome');
+  const skinMe = skinWelcome.room.players.find((p) => p.id === skinWelcome.you.id);
+  check('K1 skin choisi (couleur + chapeau) renvoyé dans le salon', skinMe && skinMe.skin && skinMe.skin.color === 'blue' && skinMe.skin.hat === 'wizard');
+  const badHost = new Client(port, 'Bad');
+  await badHost.ready;
+  const badWelcome = await badHost.request({ t: 'create', name: 'Bad', max: 3, skin: { color: '<x>', hat: '../../etc' } }, 'welcome');
+  const badMe = badWelcome.room.players.find((p) => p.id === badWelcome.you.id);
+  check('K2 skin invalide nettoyé (couleur connue, chapeau sûr)', badMe && badMe.skin && badMe.skin.hat === 'none' && /^[a-z]+$/.test(badMe.skin.color));
+  skinHost.close(); badHost.close();
+
   check('S5 /health répond', (await get(port, '/health')).body === 'ok');
   check('S6 aucun jeton ni clé n\'apparaît dans les fichiers publics', !(await get(port, '/js/game.js')).body.match(/AKIA|secret_key|api[_-]?key/i));
 

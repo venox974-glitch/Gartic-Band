@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1080">
+  <title>Modèle de chapeau</title>
+  <!-- CALQUE GUIDE : le personnage (à CACHER ou SUPPRIMER avant d'exporter ton chapeau). Le haut de sa tête est à y = 266. -->
+  <g id="GUIDE-personnage-a-cacher" stroke="#20123f" stroke-width="36" stroke-linejoin="round" stroke-linecap="round" opacity="0.5">
+    <path d="M190 949.414 L190 266.506 L890 266.506 L890 949.414 Z" fill="#d4145a"/>
+    <path d="M805.224 717.924 L274.776 713.14 L545.311 870.699 Z" fill="#e6e6e6"/>
+    <path d="M664.444 272.215 L664.444 949.414" fill="none"/>
+    <path d="M431.111 271.372 L431.111 949.414" fill="none"/>
+    <path d="M376.658 247.594 L485.564 247.594 L485.564 596.578 L376.658 596.578 Z" fill="#20123f" stroke-width="20"/>
+    <path d="M609.992 247.594 L718.897 247.594 L718.897 596.578 L609.992 596.578 Z" fill="#20123f" stroke-width="20"/>
+  </g>
+  <!-- TON CHAPEAU : dessine-le ici (contour #20123f, épaisseur 36, comme le personnage) -->
+  <g id="Hat"></g>
+</svg>

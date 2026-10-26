@@ -2,8 +2,9 @@
  * GARTIC BANDE — interface des réglages d'instruments.
  *
  *   GB.settingsUI.build()     fabrique des curseurs / boutons à partir de GB.instruments.SCHEMAS
- *   panneau « Réglages »      sous la liste des instruments : voix robot et instruments personnalisés
- *   fenêtre de création       nom, icône, forme d'onde, octave, enveloppe, écho, réverbération, écoute, sauvegarde
+ *   panneau « Réglages »      voix robot, trompette, flûte, sons importés
+ *
+ * (L'éditeur d'instruments personnalisés est dans js/synth-ui.js.)
  */
 (function (GB) {
   'use strict';
@@ -14,18 +15,6 @@
 
   const el = {
     panel: $('instrument-settings'),
-    btnNew: $('btn-new-instrument'),
-    dialog: $('instrument-dialog'),
-    title: $('inst-dialog-title'),
-    name: $('inst-name'),
-    icons: $('inst-icons'),
-    settings: $('inst-settings'),
-    error: $('inst-error'),
-    btnNote: $('btn-inst-note'),
-    btnMelody: $('btn-inst-melody'),
-    btnDelete: $('btn-inst-delete'),
-    btnCancel: $('btn-inst-cancel'),
-    btnSave: $('btn-inst-save'),
   };
 
   const listeners = { saved: [] };
@@ -48,10 +37,10 @@
    * `onInput(clé, valeur)` : pendant qu'on déplace un curseur ; `onChange(clé, valeur)` : une fois relâché.
    */
   const settingsUI = {
-    build(container, engine, values, { onInput, onChange, disabled } = {}) {
+    build(container, engine, values, { onInput, onChange, disabled, fields } = {}) {
       container.innerHTML = '';
       const widgets = {};
-      (GB.instruments.SCHEMAS[engine] || []).forEach((field) => {
+      (fields || GB.instruments.SCHEMAS[engine] || []).filter((field) => !field.hidden).forEach((field) => {
         uid += 1;
         const row = create('div', 'setting');
         row.dataset.key = field.key;
@@ -142,15 +131,20 @@
     el.panel.style.setProperty('--track-color', track.color);
 
     const head = create('div', 'settings-head');
-    head.append(create('strong', null, meta.icon + ' Réglages · ' + meta.label));
+    head.append(GB.icons.el(meta.icon, 'ins-icon'), create('strong', null, 'Réglages · ' + meta.label));
     if (meta.custom) {
-      const edit = create('button', 'btn btn-ghost btn-small', '✏️ Modifier');
+      const edit = GB.icons.set(create('button', 'btn btn-ghost btn-small'), 'knob', 'Modifier cet instrument');
       edit.type = 'button';
-      edit.title = 'Ouvrir la fenêtre de l\'instrument pour le renommer ou changer ses réglages';
-      edit.addEventListener('click', () => openDialog(meta.id));
+      edit.title = 'Ouvre l\'éditeur : tu peux changer le son, le renommer ou l\'enregistrer sous un autre nom';
+      edit.addEventListener('click', () => GB.synthUI.open(meta.id));
       head.append(edit);
     }
     el.panel.append(head);
+    if (meta.custom) {
+      el.panel.append(create('p', 'settings-note', 'Instrument personnalisé : ses réglages se modifient dans l\'éditeur. Les notes de la couche sont conservées.'));
+      if (track.locked) el.panel.append(create('p', 'settings-note', 'Cette couche est verrouillée'));
+      return;
+    }
     if (meta.sample) {
       const ref = track.settings && track.settings.sample;
       const duration = ref ? ref.duration : 0;
@@ -158,14 +152,14 @@
       const note = create('p', 'settings-note sample-info');
       note.textContent =
         'Son importé de ' + duration.toFixed(1).replace('.', ',') + ' s (≈ ' + GB.formatBeats(Math.round(beats * 4) / 4) + ' temps à ' + store.state.bpm + ' BPM). ' +
-        'Do4 = hauteur d\'origine ; plus la note est aiguë, plus le son est rapide et court. ' +
+        'Do4 = hauteur d\'origine ; les autres notes changent la hauteur du son, jamais sa vitesse ni sa durée. ' +
         (track.settings && track.settings.mode === 'fit' ? 'Il s\'arrête avec la note.' : 'Il est joué en entier, même si la note est courte.');
       el.panel.append(note);
       if (ref && ref.hash && !GB.sounds.peekBuffer(ref.hash)) {
-        el.panel.append(create('p', 'settings-note sample-warn', '⏳ Le fichier de ce son se charge… S\'il reste muet, il manque dans ce navigateur.'));
+        el.panel.append(create('p', 'settings-note sample-warn', 'Le fichier de ce son se charge… S\'il reste muet, il manque dans ce navigateur.'));
       }
     }
-    if (track.locked) el.panel.append(create('p', 'settings-note', 'Cette couche est verrouillée 🔒'));
+    if (track.locked) el.panel.append(create('p', 'settings-note', 'Cette couche est verrouillée'));
 
     const body = create('div', 'settings-grid');
     el.panel.append(body);
@@ -187,139 +181,8 @@
     });
   }
 
-  /* ------------------------------------------------------------------ */
-  /*  Fenêtre de création / modification                                 */
-  /* ------------------------------------------------------------------ */
-
-  const dialogState = { editingId: null, icon: '🎛', values: null };
-
-  function renderIcons() {
-    el.icons.innerHTML = '';
-    GB.instruments.ICONS.forEach((icon) => {
-      const button = create('button', 'icon-choice', icon);
-      button.type = 'button';
-      button.dataset.icon = icon;
-      button.setAttribute('aria-label', 'Icône ' + icon);
-      button.classList.toggle('active', icon === dialogState.icon);
-      button.setAttribute('aria-pressed', String(icon === dialogState.icon));
-      button.addEventListener('click', () => {
-        dialogState.icon = icon;
-        renderIcons();
-      });
-      el.icons.append(button);
-    });
-  }
-
-  function showError(message) {
-    el.error.textContent = message || '';
-  }
-
-  function openDialog(instrumentId) {
-    audio.unlock();
-    const meta = instrumentId ? GB.INSTRUMENTS[instrumentId] : null;
-    const editing = Boolean(meta && meta.custom);
-    dialogState.editingId = editing ? meta.id : null;
-    dialogState.icon = editing ? meta.icon : GB.instruments.ICONS[0];
-    dialogState.values = editing ? Object.assign({}, meta.settings) : GB.instruments.engineDefaults('custom');
-    el.title.textContent = editing ? 'Modifier l\'instrument' : 'Créer un instrument';
-    el.name.value = editing ? meta.label : '';
-    el.btnDelete.hidden = !editing;
-    showError('');
-    renderIcons();
-    settingsUI.build(el.settings, 'custom', dialogState.values, {
-      onInput(key, value) {
-        dialogState.values[key] = value;
-      },
-      onChange() {
-        previewNote();
-      },
-    });
-    if (typeof el.dialog.showModal === 'function') el.dialog.showModal();
-    else el.dialog.setAttribute('open', '');
-    el.name.focus();
-  }
-
-  function previewNote() {
-    return audio.previewEngine('custom', dialogState.values, [GB.legacyRow(6)], 0.6);
-  }
-
-  function previewMelody() {
-    return audio.previewEngine('custom', dialogState.values, [5, 7, 9, 8, 6, 10].map(GB.legacyRow), 0.32);
-  }
-
-  function closeDialog() {
-    if (el.dialog.open && typeof el.dialog.close === 'function') el.dialog.close();
-    else el.dialog.removeAttribute('open');
-  }
-
-  function save() {
-    const result = GB.instruments.saveCustom({
-      id: dialogState.editingId,
-      label: el.name.value,
-      icon: dialogState.icon,
-      settings: dialogState.values,
-    });
-    if (!result.ok) {
-      showError(result.error);
-      el.name.focus();
-      return;
-    }
-    closeDialog();
-    ui.showToast(
-      result.saved
-        ? '« ' + result.meta.label + ' » est sauvegardé 💾'
-        : '« ' + result.meta.label + ' » est prêt (sauvegarde impossible dans ce navigateur : il disparaîtra à la fermeture)'
-    );
-    // L'instrument créé ou modifié est tout de suite appliqué à la couche en cours (si elle est modifiable).
-    const track = store.getSelectedTrack();
-    const canApply = track && !track.locked && (!ui.isGameMode() || GB.game.state.phase === 'compose');
-    if (canApply) {
-      if (!dialogState.editingId) store.setInstrument(track.id, result.meta.id);
-      else if (track.instrumentId === result.meta.id) store.resetSettings(track.id);
-      audio.syncTracks();
-      ui.renderAll();
-      audio.preview(track.id, GB.PREVIEW_ROW);
-    }
-    listeners.saved.forEach((listener) => listener(result.meta, !dialogState.editingId));
-    renderPicker();
-  }
-
-  function remove() {
-    const id = dialogState.editingId;
-    const meta = id && GB.INSTRUMENTS[id];
-    if (!meta) return;
-    if (!window.confirm('Supprimer l\'instrument « ' + meta.label + ' » ? Les couches qui l\'utilisent déjà gardent leur son.')) return;
-    GB.instruments.deleteCustom(id);
-    closeDialog();
-    ui.showToast('« ' + meta.label + ' » supprimé');
-    listeners.saved.forEach((listener) => listener(null, false));
-    renderPicker();
-  }
-
-  function renderPicker() {
-    ui.renderInstrumentPicker();
-    renderPanel();
-  }
-
-  function bind() {
-    el.btnNew.addEventListener('click', () => openDialog(null));
-    el.btnCancel.addEventListener('click', closeDialog);
-    el.btnSave.addEventListener('click', save);
-    el.btnDelete.addEventListener('click', remove);
-    el.btnNote.addEventListener('click', previewNote);
-    el.btnMelody.addEventListener('click', previewMelody);
-    el.name.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter') {
-        event.preventDefault();
-        save();
-      }
-    });
-    el.name.addEventListener('input', () => showError(''));
-  }
-
   GB.settingsUI = settingsUI;
   GB.instrumentUI = {
-    openDialog,
     renderPanel,
     onSaved(listener) {
       listeners.saved.push(listener);
@@ -330,5 +193,4 @@
       listeners.saved.forEach((listener) => listener(null, false));
     },
   };
-  bind();
 })((window.GB = window.GB || {}));

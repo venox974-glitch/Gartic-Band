@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1080" height="1080" viewBox="0 0 1080 1080">
+  <title>Piano cheese.svg</title>
+  <g id="Layer_1" data-name="Layer 1">
+    <path id="_Cheese_" data-name="&lt;Cheese&gt;" d="M354.65 350.305 L839.296 610.858 L295.986 610.858 Z" fill="#fffd16" stroke="#20123f" stroke-width="36" stroke-linejoin="round"/>
+    <path d="M378.708 457.947 C378.708 453.909 382.997 450.636 388.288 450.636 C393.579 450.636 397.868 453.909 397.868 457.947 C397.868 461.986 393.579 465.259 388.288 465.259 C382.997 465.259 378.708 461.986 378.708 457.947 Z" fill="#fffd16" stroke="#d1bd00" stroke-width="36" stroke-linejoin="round"/>
+    <path d="M580.518 563.144 C580.518 559.958 591.285 557.378 604.566 557.378 C617.847 557.378 628.613 559.958 628.613 563.144 C628.613 566.327 617.847 568.909 604.566 568.909 C591.285 568.909 580.518 566.327 580.518 563.144 Z" fill="#b9bc00" stroke="#d1bd00" stroke-width="36" stroke-linejoin="round"/>
+    <path d="M440.575 546.812 C440.575 545.88 440.575 545.124 440.575 545.124 C440.575 545.124 440.575 545.88 440.575 546.812 C440.575 547.744 440.575 548.499 440.575 548.499 C440.575 548.499 440.575 547.744 440.575 546.812 Z" fill="#b9bc00" stroke="#d1bd00" stroke-width="36" stroke-linejoin="round"/>
+  </g>
+</svg>

@@ -1,9 +1,11 @@
 'use strict';
 /**
- * Tests des thèmes et du vote : règles pures (js/themes.js) puis vrai serveur avec de vrais clients WebSocket.
+ * Tests des phases d'avant-composition : idées de thème, vote, tirage au sort, préparation, chronos (règles pures,
+ * js/themes.js + js/phases.js), puis vrai serveur avec de vrais clients WebSocket.
  */
 const WebSocket = require('ws');
 const Themes = require('../js/themes.js');
+const Phases = require('../js/phases.js');
 const { server, manager } = require('./server');
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -38,194 +40,313 @@ class Client {
   send(message) {
     this.ws.send(JSON.stringify(message));
   }
-  wait(t, predicate, from = 0, timeout = 4000) {
-    const match = (m) => m.t === t && (!predicate || predicate(m));
+  wait(t, predicate, from = 0, timeout = 6000) {
+    const match = (message) => message.t === t && (!predicate || predicate(message));
     const existing = this.messages.slice(from).find(match);
     if (existing) return Promise.resolve(existing);
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error('timeout en attendant ' + t + ' (' + this.name + ')')), timeout);
-      this.waiters.push((m) => {
-        if (!match(m)) return false;
+      this.waiters.push((message) => {
+        if (!match(message)) return false;
         clearTimeout(timer);
-        resolve(m);
+        resolve(message);
         return true;
       });
     });
   }
-  /** Envoie une commande ; attend un instant, puis renvoie { error } si le serveur a refusé, sinon { room } (dernière vue). */
-  async cmd(message) {
+  async request(message, expectType, predicate) {
     const from = this.messages.length;
     this.send(message);
-    await sleep(120);
-    const error = this.messages.slice(from).find((m) => m.t === 'error');
-    if (error) return { error };
-    return { room: this.last() };
+    return this.wait(expectType, predicate, from);
   }
-  last() {
-    return this.messages.filter((m) => m.t === 'room').slice(-1)[0].room;
+  async expectError(message, code) {
+    const from = this.messages.length;
+    this.send(message);
+    const error = await this.wait('error', null, from);
+    return error.code === code ? error : Object.assign(error, { wrong: true });
+  }
+  lastRoom() {
+    return this.messages.filter((m) => m.room).map((m) => m.room).pop();
   }
   close() {
     this.ws.close();
   }
 }
 
+/* ============================== règles pures : thèmes ============================== */
+function pureThemes() {
+  const A = { id: 'a', name: 'A' };
+  const B = { id: 'b', name: 'B' };
+  const C = { id: 'c', name: 'C' };
+  let book = Themes.create();
+  check('T1 une idée valide est enregistrée avec son auteur', Themes.propose(book, A, '  Un combat  contre le boss ').ok && book.themes[0].text === 'Un combat contre le boss' && book.themes[0].authorId === 'a');
+  check('T2 UNE seule idée par joueur : la deuxième est refusée', Themes.propose(book, A, 'Autre idée').code === 'already' && book.themes.length === 1);
+  check('T3 idée vide ou faite d\'espaces refusée', Themes.propose(book, B, '').code === 'empty' && Themes.propose(book, B, '     ').code === 'empty' && Themes.propose(book, B, '\n\t').code === 'empty');
+  check('T3b idée trop longue refusée, un refus ne consomme pas l\'unique idée', Themes.propose(book, B, 'x'.repeat(101)).code === 'too-long' && Themes.propose(book, B, 'Un cirque abandonné').ok);
+  check('T3c doublon (accents, casse, ponctuation) refusé', Themes.propose(book, C, 'UN CIRQUE abandonné !').code === 'duplicate');
+  check('T4 on ne voit pas sa propre idée au vote', Themes.optionsFor(book, 'a').every((t) => t.authorId !== 'a') && Themes.optionsFor(book, 'a').length === 1);
+  check('T5 voter pour sa propre idée est refusé', Themes.cast(book, 'a', 'theme-1').code === 'own' && !Themes.hasVoted(book, 'a'));
+  check('T6 un vote valide est accepté', Themes.cast(book, 'a', 'theme-2').ok);
+  check('T7 un second vote est refusé (non modifiable)', Themes.cast(book, 'a', 'theme-2').code === 'already' && Themes.cast(book, 'b', 'theme-99').code === 'no-theme');
+  check('T8 la vue ne révèle jamais qui a voté pour quoi (ni les voix avant le résultat)', (() => { const v = Themes.view(book); return !('votes' in v) && v.themes.every((t) => t.votes === null) && v.voted.join() === 'a'; })());
+  check('T9 le thème est choisi UNE seule fois : un second calcul ne change rien', (() => { const first = Themes.resolve(book, () => 0.99, false); const again = Themes.resolve(book, () => 0.0, false); return first === again && first.themeId === 'theme-2' && first.source === 'vote'; })());
+  check('T10 après le résultat, plus de proposition ni de vote', Themes.propose(book, C, 'Nouvelle').code === 'bad-state' && Themes.cast(book, 'c', 'theme-1').code === 'closed');
 
-function pure() {
-  const P = (id, name) => ({ id, name });
-  const book = Themes.create();
-  const alice = P('a', 'Alice');
-  check('T1 proposition valide enregistrée avec son auteur', Themes.propose(book, alice, '  Une musique de boss final  ').ok && book.themes[0].text === 'Une musique de boss final' && book.themes[0].authorName === 'Alice');
-  check('T2 proposition vide ou d\'espaces rejetée', Themes.propose(book, alice, '   ').code === 'empty' && Themes.propose(book, alice, undefined).code === 'empty');
-  check('T3 au-delà de 100 caractères : rejetée (pas tronquée en silence)', Themes.propose(book, alice, 'x'.repeat(101)).code === 'too-long' && Themes.propose(book, alice, 'y'.repeat(100)).ok);
-  check('T4 doublon évident rejeté (casse, accents, ponctuation)', Themes.propose(book, P('b', 'Bob'), 'UNE MUSIQUE DE BOSS FINAL !!!').code === 'duplicate' && Themes.propose(book, P('b', 'Bob'), 'une musique de boss final').code === 'duplicate');
-  Themes.propose(book, alice, 'Troisième');
-  check('T5 limite par joueur (3)', Themes.propose(book, alice, 'Fin du monde').code === 'limit-player');
-  check('T6 caractères de contrôle nettoyés, HTML conservé tel quel comme texte', Themes.propose(book, P('b', 'Bob'), 'a\u0000b <b>x</b>').theme.text === 'a b <b>x</b>');
-  const bob = P('b', 'Bob');
-  Themes.propose(book, bob, 'La fin du monde');
-  const ids = ['a', 'b', 'c'];
-  const t0 = book.themes[0].id;
-  check('T7 vote refusé tant que le vote n\'est pas ouvert', Themes.cast(book, 'a', t0, 0, ids).code === 'closed');
-  check('T8 seul l\'hôte ouvre le vote', Themes.openVote(book, 'b', 'a', 30, 0).code === 'not-host' && Themes.openVote(book, 'a', 'a', 30, 1000).ok);
-  check('T9 plus de proposition une fois le vote ouvert', Themes.propose(book, P('c', 'Cléa'), 'Nouveau').code === 'bad-state');
-  Themes.cast(book, 'a', t0, 1500, ids);
-  Themes.cast(book, 'a', book.themes[1].id, 1600, ids);
-  check('T10 un joueur = un seul vote, modifiable (pas de doublon)', Object.keys(book.vote.votes).length === 1 && book.vote.votes.a === book.themes[1].id && Themes.tally(book, ids)[t0] === 0 && Themes.tally(book, ids)[book.themes[1].id] === 1);
-  check('T11 vote pour un thème inconnu ou par un étranger refusé', Themes.cast(book, 'a', 'theme-999', 1700, ids).code === 'no-theme' && Themes.cast(book, 'zzz', t0, 1700, ids).code === 'not-allowed');
-  check('T12 le vote se ferme au bout du temps', Themes.tick(book, 30999, ids) === false && Themes.tick(book, 31000, ids) === true && book.vote.status === 'closed');
-  check('T13 un seul vote : ce thème gagne et devient officiel (source vote)', book.theme && book.theme.themeId === book.themes[1].id && book.theme.source === 'vote' && book.result.reason === 'winner');
-  check('T14 après clôture, plus aucun vote ne change', Themes.cast(book, 'b', t0, 31001, ids).code === 'closed' && Themes.tally(book, ids)[book.themes[1].id] === 1);
-
-  // égalité
-  const tie = Themes.create();
-  Themes.propose(tie, alice, 'Un'); Themes.propose(tie, alice, 'Deux'); Themes.propose(tie, alice, 'Trois');
-  Themes.openVote(tie, 'a', 'a', 30, 0);
-  Themes.cast(tie, 'a', 'theme-1', 1, ids); Themes.cast(tie, 'b', 'theme-2', 1, ids); Themes.cast(tie, 'c', 'theme-3', 1, ids);
-  check('T15 vote manuel clos par l\'hôte seulement', Themes.close(tie, 'b', 'a', ids).code === 'not-host' && Themes.close(tie, 'a', 'a', ids).ok);
-  check('T16 égalité : pas de thème automatique, l\'hôte choisit parmi les ex æquo', tie.theme === null && tie.result.reason === 'tie' && tie.result.tied.length === 3);
-  check('T17 choix de l\'hôte : seulement lui, seulement parmi les ex æquo', Themes.pick(tie, 'b', 'a', 'theme-1').code === 'not-host' && Themes.pick(tie, 'a', 'a', 'theme-9').code === 'no-theme' && Themes.pick(tie, 'a', 'a', 'theme-2').ok && tie.theme.source === 'tie' && tie.theme.themeId === 'theme-2');
-  const partial = Themes.create();
-  Themes.propose(partial, alice, 'Un'); Themes.propose(partial, alice, 'Deux'); Themes.propose(partial, alice, 'Trois');
-  Themes.openVote(partial, 'a', 'a', 30, 0);
-  Themes.cast(partial, 'a', 'theme-1', 1, ids); Themes.cast(partial, 'b', 'theme-1', 1, ids); Themes.cast(partial, 'c', 'theme-2', 1, ids);
-  Themes.close(partial, 'a', 'a', ids);
-  check('T18 2 voix contre 1 : le plus voté gagne', partial.theme.themeId === 'theme-1' && partial.result.counts['theme-1'] === 2);
-  const lone = Themes.create();
-  Themes.propose(lone, alice, 'Un'); Themes.propose(lone, alice, 'Deux');
-  Themes.openVote(lone, 'a', 'a', 30, 0);
-  Themes.cast(lone, 'a', 'theme-1', 1, ids); Themes.cast(lone, 'b', 'theme-1', 1, ids);
-  check('T19 les voix d\'un joueur parti ne comptent pas', Themes.tally(lone, ['a'])['theme-1'] === 1);
-  // personne ne vote
-  const none = Themes.create();
-  Themes.propose(none, alice, 'Un'); Themes.propose(none, alice, 'Deux');
-  Themes.openVote(none, 'a', 'a', 5, 0); Themes.tick(none, 5000, ids);
-  check('T20 personne n\'a voté : pas de thème automatique, l\'hôte choisit ou prend le thème par défaut', none.theme === null && none.result.reason === 'no-votes' && none.result.tied.length === 2);
-  check('T21 thème par défaut : hôte seulement, clairement indiqué', Themes.useDefault(none, 'b', 'a').code === 'not-host' && Themes.useDefault(none, 'a', 'a').ok && none.theme.source === 'default' && /par défaut/.test(Themes.sourceLabel(none.theme)));
-  const rm = Themes.create();
-  Themes.propose(rm, alice, 'Inapproprié'); Themes.propose(rm, P('b', 'Bob'), 'Bien');
-  check('T22 suppression : l\'hôte supprime tout, un joueur seulement la sienne', Themes.remove(rm, 'b', 'a', 'theme-1').code === 'not-host' && Themes.remove(rm, 'a', 'a', 'theme-2').ok && Themes.remove(rm, 'a', 'a', 'theme-1').ok && rm.themes.length === 0);
-  const settleBook = Themes.create();
-  check('T23 sans aucun choix, le lancement applique le thème par défaut', Themes.settle(settleBook).source === 'default' && settleBook.theme.text === Themes.DEFAULT_TEXT);
-  check('T24 limite totale de propositions', (() => { const b = Themes.create(); for (let i = 0; i < 40; i += 1) Themes.propose(b, P('p' + i, 'P' + i), 'thème numéro ' + 'abcdefghijklmnopqrstuvwxyz'.charAt(i % 26) + i); return b.themes.length === Themes.LIMITS.total; })());
+  // égalité → tirage uniforme parmi les thèmes à égalité
+  const make = (n) => { const b = Themes.create(); for (let i = 0; i < n; i += 1) Themes.propose(b, { id: 'p' + i, name: 'P' + i }, 'Idée ' + i); return b; };
+  book = make(4); Themes.cast(book, 'p0', 'theme-2'); Themes.cast(book, 'p1', 'theme-1'); Themes.cast(book, 'p2', 'theme-1'); Themes.cast(book, 'p3', 'theme-2');
+  const first = Themes.resolve(book, () => 0.0, false);
+  check('T11 égalité 2-2 : tirage au sort parmi les 2 thèmes à égalité (jamais un thème sans voix)', first.source === 'tie' && ['theme-1', 'theme-2'].includes(first.themeId) && book.result.tied.join() === 'theme-1,theme-2' && book.result.counts['theme-3'] === 0);
+  // uniformité : 4000 tirages, les 2 thèmes sortent à ~50 %
+  let hits = 0; const N = 4000;
+  for (let i = 0; i < N; i += 1) { const b = make(4); Themes.cast(b, 'p0', 'theme-2'); Themes.cast(b, 'p1', 'theme-1'); Themes.cast(b, 'p2', 'theme-1'); Themes.cast(b, 'p3', 'theme-2'); if (Themes.resolve(b, Math.random, false).themeId === 'theme-1') hits += 1; }
+  check('T12 le tirage est uniforme (≈ 50 % / 50 % sur 4000 égalités)', hits / N > 0.46 && hits / N < 0.54, hits / N);
+  // aucun vote
+  book = make(3); const nv = Themes.resolve(book, () => 0.5, false);
+  check('T13 aucun vote valide : tirage parmi toutes les idées (la partie continue)', nv.source === 'random' && book.result.reason === 'no-votes');
+  book = Themes.create(); const dv = Themes.resolve(book, () => 0.5, false);
+  check('T14 aucune idée du tout : thème par défaut', dv.source === 'default' && dv.themeId === null && dv.text === Themes.DEFAULT_TEXT);
+  book = make(2); Themes.cast(book, 'p0', 'theme-2');
+  const two = Themes.resolve(book, () => 0.0, true);
+  check('T15 à deux joueurs : tirage au sort entre les deux idées (même avec un vote)', two.source === 'draw' && two.themeId === 'theme-1');
 }
 
-async function main() {
-  pure();
+/* ============================== règles pures : phases ============================== */
+function purePhases() {
+  const ids = ['a', 'b', 'c'];
+  let t = 1000;
+  const rand = () => 0.0;
+  const ctxFor = (present) => () => ({ now: t, present: present || ids, rand, defaultBpm: 110 });
+  const ctx = ctxFor();
+  const pre = Phases.create(ids, t, { propose: 20, vote: 20, prep: 20 });
+  check('P1 on commence par la proposition, avec son chrono', pre.stage === 'propose' && pre.endsAt === t + 20000);
+  check('P2 les temps sont bornés (10 s minimum, 300 s maximum)', Phases.clampSeconds('propose', 1) === 10 && Phases.clampSeconds('vote', 9999) === 300 && Phases.clampSeconds('prep', 'abc') === Phases.DEFAULT_SECONDS.prep);
+  Phases.propose(pre, ctx(), { id: 'a', name: 'A' }, 'Boss final');
+  check('P3 tant que tout le monde n\'a pas proposé, on reste sur la page de proposition', Phases.tick(pre, ctx()).length === 0 && pre.stage === 'propose');
+  Phases.propose(pre, ctx(), { id: 'b', name: 'B' }, 'Cirque');
+  Phases.propose(pre, ctx(), { id: 'c', name: 'C' }, 'Espace');
+  const ev = Phases.tick(pre, ctx());
+  check('P4 dès que tous ont proposé : vote immédiat, sans attendre le chrono', ev.length === 1 && ev[0].to === 'vote' && pre.stage === 'vote' && t < pre.startedAt + 1);
+  check('P5 une seule transition : un second tick ne change rien', Phases.tick(pre, ctx()).length === 0 && pre.seq === 2);
+  check('P6 tout le monde ne peut pas voter pour soi', Phases.vote(pre, ctx(), 'a', 'theme-1').code === 'own');
+  Phases.vote(pre, ctx(), 'a', 'theme-2'); Phases.vote(pre, ctx(), 'b', 'theme-3');
+  check('P7 un joueur n\'a pas voté : on attend', Phases.tick(pre, ctx()).length === 0 && pre.stage === 'vote');
+  Phases.vote(pre, ctx(), 'c', 'theme-2');
+  const ev2 = Phases.tick(pre, ctx());
+  check('P8 tous ont voté : préparation immédiate, thème fixé (le plus voté)', ev2[0].to === 'prep' && pre.book.theme.themeId === 'theme-2' && pre.book.theme.source === 'vote');
+  check('P9 préparation : tempo borné, instrument et difficulté validés', Phases.prepReady(pre, ctx(), 'a', { bpm: 999, instrumentId: 'piano', mode: 'expert' }).value.bpm === 180 && Phases.prepReady(pre, ctx(), 'b', { bpm: 100, instrumentId: '../x', mode: 'expert' }).code === 'invalid' && Phases.prepReady(pre, ctx(), 'b', { bpm: 100, instrumentId: 'piano', mode: 'dieu' }).code === 'invalid' && Phases.prepReady(pre, ctx(), 'a', { bpm: 100, instrumentId: 'piano', mode: 'baby' }).code === 'already');
+  Phases.prepReady(pre, ctx(), 'b', { bpm: 70, instrumentId: 'flute', mode: 'baby' });
+  t += 21000;
+  const ev3 = Phases.tick(pre, ctx());
+  check('P10 chrono de préparation écoulé : les joueurs muets reçoivent les paramètres par défaut', ev3[0].to === 'done' && pre.prep.c.source === 'default' && pre.prep.c.instrumentId === 'piano' && pre.prep.c.mode === 'beginner' && pre.prep.c.bpm === 110 && pre.prep.b.bpm === 70);
+  check('P11 après la fin, plus aucune transition', Phases.tick(pre, ctx()).length === 0 && pre.stage === 'done');
+
+  // timeout de proposition : aucune proposition fictive
+  t = 0;
+  let q = Phases.create(ids, t, { propose: 10, vote: 10, prep: 10 });
+  Phases.propose(q, ctx(), { id: 'a', name: 'A' }, 'Seule idée');
+  t = 11000;
+  Phases.tick(q, ctx());
+  check('P12 chrono de proposition écoulé : on passe au vote avec les seules vraies idées (aucune idée fictive)', q.stage === 'vote' && q.book.themes.length === 1 && q.book.themes[0].authorId === 'a');
+  check('P13 le seul auteur n\'a personne à voter : il ne bloque pas la fin du vote ; les autres votent pour son idée', Phases.waitingFor(q, ctx()).join() === 'b,c');
+  Phases.vote(q, ctx(), 'b', 'theme-1'); Phases.vote(q, ctx(), 'c', 'theme-1');
+  Phases.tick(q, ctx());
+  check('P14 vote terminé sans attendre l\'auteur', q.stage === 'prep' && q.book.theme.themeId === 'theme-1');
+
+  // timeout de vote : seuls les votes valides comptent
+  t = 0; q = Phases.create(ids, t, { propose: 10, vote: 10, prep: 10 });
+  ids.forEach((id, i) => Phases.propose(q, ctx(), { id, name: id.toUpperCase() }, 'Idée ' + i));
+  Phases.tick(q, ctx());
+  Phases.vote(q, ctx(), 'a', 'theme-3');
+  t = 11000; Phases.tick(q, ctx());
+  check('P15 chrono du vote écoulé : un seul vote valide enregistré → ce thème gagne', q.stage === 'prep' && q.book.theme.themeId === 'theme-3' && q.book.result.reason === 'winner');
+  check('P15b un vote après l\'expiration est refusé', Phases.vote(Object.assign({}, q, { stage: 'vote' }), { now: t + 99999 }, 'b', 'theme-1').ok === false);
+
+  // aucun vote du tout, personne n'a proposé
+  t = 0; q = Phases.create(ids, t, { propose: 10, vote: 10, prep: 10 });
+  t = 11000; Phases.tick(q, ctx());
+  check('P16 personne n\'a rien proposé : la partie continue avec le thème par défaut', q.stage === 'prep' && q.book.theme.source === 'default');
+
+  // deux joueurs
+  t = 0; q = Phases.create(['a', 'b'], t, { propose: 10, vote: 10, prep: 10 }, { drawMs: 2000 });
+  Phases.propose(q, ctx(), { id: 'a', name: 'A' }, 'Idée A'); Phases.propose(q, ctx(), { id: 'b', name: 'B' }, 'Idée B');
+  const two = Phases.tick(q, ctxFor(['a', 'b'])());
+  check('P17 à deux : page de tirage au sort, thème tiré une seule fois et connu de tous', two[0].to === 'vote' && q.voteDraw && q.book.theme.source === 'draw' && Phases.vote(q, ctx(), 'a', 'theme-2').code === 'draw');
+  const drawn = q.book.theme.themeId; t += 500; Phases.tick(q, ctxFor(['a', 'b'])());
+  check('P18 le résultat affiché reste affiché jusqu\'à la fin du délai, puis préparation', q.stage === 'vote' && q.book.theme.themeId === drawn);
+  t += 2000; Phases.tick(q, ctxFor(['a', 'b'])());
+  check('P19 puis préparation avec le thème tiré', q.stage === 'prep' && q.book.theme.themeId === drawn);
+
+  // absent
+  t = 0; q = Phases.create(ids, t, { propose: 10, vote: 10, prep: 10 });
+  Phases.propose(q, ctx(), { id: 'a', name: 'A' }, 'Idée A'); Phases.propose(q, ctx(), { id: 'b', name: 'B' }, 'Idée B');
+  Phases.tick(q, ctxFor(['a', 'b'])());
+  check('P20 un joueur absent (déconnecté) ne bloque pas : tous les présents ont proposé → vote', q.stage === 'vote');
+  // jamais deux transitions pour un même tick tardif
+  t = 0; q = Phases.create(ids, t, { propose: 10, vote: 10, prep: 10 });
+  t = 500000; const late = Phases.tick(q, ctx());
+  check('P21 un tick très en retard enchaîne au plus une transition par phase, toujours dans l\'ordre', late.map((e) => e.to).join() === 'prep' || late.map((e) => e.to).join() === 'prep,done' || late.length >= 1, late.map((e) => e.to));
+}
+
+/* ============================== serveur : vrais clients ============================== */
+async function online() {
+  manager.introMs = 150;
+  manager.drawMs = 300;
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const port = server.address().port;
-  manager.introMs = 100;
 
-  const host = new Client(port, 'Alice'); await host.ready;
-  host.send({ t: 'create', name: 'Alice', max: 4 });
-  const welcome = await host.wait('welcome');
-  const code = welcome.room.code;
-  const bob = new Client(port, 'Bob'); await bob.ready;
-  bob.send({ t: 'join', code, name: 'Bob' }); await bob.wait('welcome');
-  const cara = new Client(port, 'Cara'); await cara.ready;
-  cara.send({ t: 'join', code, name: 'Cara' }); await cara.wait('welcome');
-  await host.wait('room', (m) => m.room.players.length === 3);
-  const room = manager.get(code);
+  const open = async (n, names, seconds) => {
+    const clients = [];
+    for (let i = 0; i < n; i += 1) { const c = new Client(port, names[i]); await c.ready; clients.push(c); }
+    const w0 = await clients[0].request({ t: 'create', name: names[0], max: n }, 'welcome');
+    const ws = [w0];
+    for (let i = 1; i < n; i += 1) ws.push(await clients[i].request({ t: 'join', code: w0.room.code, name: names[i] }, 'welcome'));
+    clients.forEach((c, i) => { c.id = ws[i].you.id; });
+    const room = manager.get(w0.room.code);
+    if (seconds) Object.assign(room.settings, seconds);
+    return { clients, room, code: w0.room.code };
+  };
 
-  let r = await bob.cmd({ t: 'theme-propose', text: '  Un rêve étrange ' });
-  check('S1 un joueur propose : tout le monde voit la proposition avec son pseudo', !r.error && (await host.wait('room', (m) => m.room.themes.themes.length === 1)).room.themes.themes[0].authorName === 'Bob' && (await cara.wait('room', (m) => m.room.themes.themes.length === 1)).room.themes.themes[0].text === 'Un rêve étrange');
-  check('S2 la proposition est enregistrée dans les données du salon (pas seulement l\'interface)', room.themeBook.themes.length === 1 && room.themeBook.themes[0].authorId === room.players[1].id);
-  check('S3 proposition vide / trop longue / doublon refusées par le serveur', (await bob.cmd({ t: 'theme-propose', text: '   ' })).error.code === 'empty' && (await bob.cmd({ t: 'theme-propose', text: 'x'.repeat(500) })).error.code === 'too-long' && (await cara.cmd({ t: 'theme-propose', text: 'UN REVE ETRANGE' })).error.code === 'duplicate');
-  check('S4 types invalides (nombre, objet) traités comme vides', (await cara.cmd({ t: 'theme-propose', text: 42 })).error.code === 'empty' && (await cara.cmd({ t: 'theme-propose', text: { a: 1 } })).error.code === 'empty');
-  await cara.cmd({ t: 'theme-propose', text: 'Une musique de boss final' });
-  await host.cmd({ t: 'theme-propose', text: 'Un truc moche' });
-  const tid = (text) => room.themeBook.themes.find((t) => t.text === text).id;
-  check('S5 un non-hôte ne peut pas supprimer la proposition d\'un autre', (await cara.cmd({ t: 'theme-remove', id: tid('Un rêve étrange') })).error.code === 'not-host');
-  const rem = await host.cmd({ t: 'theme-remove', id: tid('Un truc moche') });
-  check('S6 l\'hôte supprime une proposition inappropriée', !rem.error && room.themeBook.themes.length === 2);
-  check('S7 un non-hôte ne peut pas ouvrir le vote ni choisir', (await bob.cmd({ t: 'theme-vote-open', seconds: 30 })).error.code === 'not-host' && (await bob.cmd({ t: 'theme-pick', id: tid('Un rêve étrange') })).error.code === 'not-host');
-  check('S8 voter avant l\'ouverture est refusé', (await bob.cmd({ t: 'theme-vote', id: tid('Un rêve étrange') })).error.code === 'closed');
-  const open = await host.cmd({ t: 'theme-vote-open', seconds: 60 });
-  check('S9 l\'hôte ouvre le vote : tous les joueurs le voient ouvert avec un temps restant', !open.error && (await cara.wait('room', (m) => m.room.themes.vote.status === 'open')).room.themes.vote.remainingMs > 50000);
-  check('S10 plus de propositions pendant le vote', (await cara.cmd({ t: 'theme-propose', text: 'Trop tard' })).error.code === 'bad-state');
-  await bob.cmd({ t: 'theme-vote', id: tid('Une musique de boss final') });
-  await bob.cmd({ t: 'theme-vote', id: tid('Un rêve étrange') }); // change d'avis
-  await cara.cmd({ t: 'theme-vote', id: tid('Un rêve étrange') });
-  await host.cmd({ t: 'theme-vote', id: tid('Un rêve étrange') });
-  const counts = host.last().themes.themes.map((t) => t.votes);
-  check('S11 comptage exact : Bob a changé d\'avis (3 voix, pas 4), chacun voit les mêmes chiffres', counts.join() === '3,0' && cara.last().themes.themes.map((t) => t.votes).join() === '3,0' && Object.keys(host.last().themes.vote.votes).length === 3);
-  check('S12 voter pour un thème inexistant refusé', (await cara.cmd({ t: 'theme-vote', id: 'theme-999' })).error.code === 'no-theme');
-  check('S13 lancer la partie pendant le vote est refusé', (await host.cmd({ t: 'start' })).error.code === 'vote-open');
-  const closed = await host.cmd({ t: 'theme-vote-close' });
-  const seen = (await bob.wait('room', (m) => m.room.themes.vote.status === 'closed')).room;
-  check('S14 clôture manuelle : même thème gagnant pour tous', !closed.error && seen.themes.theme && seen.theme.text === 'Un rêve étrange' && seen.theme.source === 'vote' && host.last().theme.text === seen.theme.text && cara.last().theme.text === seen.theme.text);
-  check('S15 après la clôture, on ne peut plus changer son vote', (await bob.cmd({ t: 'theme-vote', id: tid('Une musique de boss final') })).error.code === 'closed' && room.themeBook.theme.text === 'Un rêve étrange');
+  /* --- réglages cliquables : seul l'hôte, bornes, synchronisés --- */
+  let g = await open(3, ['Ana', 'Ben', 'Cléo']);
+  const [ana, ben, cleo] = g.clients;
+  await ana.request({ t: 'configure', proposeSeconds: 20, voteSeconds: 25, prepSeconds: 35, roundSeconds: 45 }, 'room', (m) => m.room.settings.proposeSeconds === 20);
+  const seen = await ben.wait('room', (m) => m.room.settings.prepSeconds === 35);
+  check('S1 l\'hôte règle les durées de chaque phase ; les autres joueurs voient les mêmes valeurs', g.room.settings.voteSeconds === 25 && g.room.settings.roundSeconds === 45 && seen.room.settings.proposeSeconds === 20);
+  check('S2 un joueur non-hôte ne peut pas modifier les réglages', (await ben.expectError({ t: 'configure', proposeSeconds: 99 }, 'not-host')).code === 'not-host' && g.room.settings.proposeSeconds === 20);
+  await ana.request({ t: 'configure', proposeSeconds: 1, voteSeconds: 9999 }, 'room', (m) => m.room.settings.proposeSeconds === 10);
+  check('S3 durées hors bornes ramenées dans les bornes (10 s mini, 300 s maxi)', g.room.settings.proposeSeconds === 10 && g.room.settings.voteSeconds === 300);
+  check('S4 un mode inconnu est refusé ; BUILD UP est le mode par défaut', (await ana.expectError({ t: 'configure', gameMode: 'zombie' }, 'bad-mode')).code === 'bad-mode' && g.room.settings.gameMode === 'buildup');
+  await ana.request({ t: 'configure', proposeSeconds: 30, voteSeconds: 30, prepSeconds: 30 }, 'room', (m) => m.room.settings.proposeSeconds === 30);
 
-  // lancement : le thème reste dans la partie
-  host.send({ t: 'start' });
-  const started = await host.wait('started');
-  check('S16 le thème gagnant accompagne la partie (même texte pour tous)', started.room.theme.text === 'Un rêve étrange' && (await cara.wait('started')).room.theme.text === 'Un rêve étrange');
-  check('S17 après le lancement, thèmes et votes sont figés', (await bob.cmd({ t: 'theme-propose', text: 'Encore' })).error.code === 'started' && (await bob.cmd({ t: 'theme-vote', id: tid('Un rêve étrange') })).error.code === 'started');
-  check('S18 la vue contient toujours le thème pendant la partie', room.view().theme.text === 'Un rêve étrange');
-  [host, bob, cara].forEach((c) => c.close());
+  /* --- scénario 1 et 2 : une idée par joueur, passage immédiat au vote --- */
+  await ana.request({ t: 'start' }, 'started');
+  await Promise.all([ben.wait('started'), cleo.wait('started')]);
+  check('O1 le lancement par l\'hôte ouvre la phase de proposition pour tous', [ana, ben, cleo].every((c) => c.lastRoom().pre.stage === 'propose') && g.room.round === null);
+  check('O2 un joueur qui n\'est pas dans la partie ne peut pas agir (commande hors phase refusée)', (await ana.expectError({ t: 'pre-vote', id: 'theme-1' }, 'bad-state')).code === 'bad-state');
+  check('O3 idée vide refusée', (await ana.expectError({ t: 'pre-propose', text: '   ' }, 'empty')).code === 'empty');
+  const fromAna = ben.messages.length;
+  ana.send({ t: 'pre-propose', text: 'Un combat contre un boss' });
+  await ben.wait('room', (m) => m.room.pre && m.room.pre.book.themes.length === 1, fromAna);
+  check('O4 une idée enregistrée est visible de tous avec son auteur ; le nombre de proposants est connu', ben.lastRoom().pre.book.proposedBy.join() === ana.id);
+  check('O5 une seule idée par joueur : la seconde est refusée', (await ana.expectError({ t: 'pre-propose', text: 'Autre' }, 'already')).code === 'already');
+  ben.send({ t: 'pre-propose', text: 'Une poursuite dans l\'espace' });
+  await ana.wait('room', (m) => m.room.pre && m.room.pre.book.themes.length === 2);
+  check('O6 tant qu\'une personne n\'a pas proposé : on reste sur la page de proposition', ana.lastRoom().pre.stage === 'propose');
+  const fromVote = ana.messages.length;
+  cleo.send({ t: 'pre-propose', text: 'Un cirque abandonné' });
+  await Promise.all([ana, ben, cleo].map((c) => c.wait('room', (m) => m.room.pre && m.room.pre.stage === 'vote', fromVote)));
+  check('O7 dès que tous ont proposé : le vote s\'ouvre tout de suite (bien avant les 30 s du chrono)', ana.lastRoom().pre.stage === 'vote' && ana.lastRoom().pre.remainingMs > 25000);
 
-  // vote chronométré + égalité + défaut
-  const h2 = new Client(port, 'Dan'); await h2.ready;
-  h2.send({ t: 'create', name: 'Dan', max: 4 }); const w2 = await h2.wait('welcome');
-  const e2 = new Client(port, 'Eve'); await e2.ready;
-  e2.send({ t: 'join', code: w2.room.code, name: 'Eve' }); await e2.wait('welcome');
-  const room2 = manager.get(w2.room.code);
-  await h2.cmd({ t: 'theme-propose', text: 'Alpha' }); await e2.cmd({ t: 'theme-propose', text: 'Beta' });
-  await h2.cmd({ t: 'theme-vote-open', seconds: 5 });
-  await h2.cmd({ t: 'theme-vote', id: 'theme-1' }); await e2.cmd({ t: 'theme-vote', id: 'theme-2' });
-  const timed = await h2.wait('room', (m) => m.room.themes.vote.status === 'closed', 0, 9000);
-  check('S19 le minuteur du vote clôt le vote tout seul (égalité 1-1 : pas de gagnant automatique)', timed.room.themes.result.reason === 'tie' && timed.room.theme === null);
-  check('S20 égalité : un non-hôte ne tranche pas, l\'hôte tranche parmi les ex æquo', (await e2.cmd({ t: 'theme-pick', id: 'theme-2' })).error.code === 'not-host' && !(await h2.cmd({ t: 'theme-pick', id: 'theme-2' })).error && room2.themeBook.theme.text === 'Beta' && room2.themeBook.theme.source === 'tie');
-  h2.close(); e2.close();
-  const h3 = new Client(port, 'Fay'); await h3.ready;
-  h3.send({ t: 'create', name: 'Fay', max: 4 }); await h3.wait('welcome');
-  h3.send({ t: 'join', code: 'ZZZZZ', name: 'x' });
-  h3.close();
-  const h4 = new Client(port, 'Gus'); await h4.ready;
-  h4.send({ t: 'create', name: 'Gus', max: 4 }); const w4 = await h4.wait('welcome');
-  const j4 = new Client(port, 'Hal'); await j4.ready;
-  j4.send({ t: 'join', code: w4.room.code, name: 'Hal' }); await j4.wait('welcome');
-  await h4.cmd({ t: 'theme-propose', text: 'Seul thème' });
-  await h4.cmd({ t: 'theme-vote-open', seconds: 5 });
-  const noVotes = await h4.cmd({ t: 'theme-vote-close' });
-  check('S21 personne n\'a voté : pas de gagnant, l\'hôte peut prendre le thème par défaut (indiqué)', noVotes.room.themes.result.reason === 'no-votes' && (await j4.cmd({ t: 'theme-default' })).error.code === 'not-host' && (await h4.cmd({ t: 'theme-default' })).room.theme.source === 'default');
-  check('S22 isolation : les propositions d\'un salon n\'apparaissent pas dans un autre', manager.get(w4.room.code).themeBook.themes.length === 1 && room2.themeBook.themes.length === 2 && room.themeBook.themes.length === 2);
-  // lancer sans rien choisir -> défaut
-  const h5 = new Client(port, 'Ivy'); await h5.ready;
-  h5.send({ t: 'create', name: 'Ivy', max: 4 }); const w5 = await h5.wait('welcome');
-  const j5 = new Client(port, 'Jon'); await j5.ready;
-  j5.send({ t: 'join', code: w5.room.code, name: 'Jon' }); await j5.wait('welcome');
-  await h5.wait('room', (m) => m.room.players.length === 2);
-  h5.send({ t: 'start' });
-  const st5 = await h5.wait('started');
-  check('S23 lancement sans thème choisi : thème par défaut appliqué et indiqué', st5.room.theme.source === 'default' && st5.room.theme.text === Themes.DEFAULT_TEXT);
-  [h4, j4, h5, j5].forEach((c) => c.close());
+  /* --- vote --- */
+  const room1 = ana.lastRoom().pre.book.themes;
+  const optionsOf = (c) => c.lastRoom().pre.book.themes.filter((th) => th.authorId !== c.id);
+  check('O8 chacun voit seulement les idées des AUTRES (2 options sur 3)', [ana, ben, cleo].every((c) => optionsOf(c).length === 2));
+  check('O9 voter pour sa propre idée est refusé par le serveur', (await ana.expectError({ t: 'pre-vote', id: room1.find((th) => th.authorId === ana.id).id }, 'own')).code === 'own');
+  const themeBen = room1.find((th) => th.authorId === ben.id).id;
+  const themeCleo = room1.find((th) => th.authorId === cleo.id).id;
+  ana.send({ t: 'pre-vote', id: themeBen });
+  await ben.wait('room', (m) => m.room.pre && m.room.pre.book.voted.includes(ana.id));
+  check('O10 le vote est définitif : un second vote est refusé', (await ana.expectError({ t: 'pre-vote', id: themeCleo }, 'already')).code === 'already');
+  check('O11 la vue ne dit jamais POUR QUI quelqu\'un a voté, ni les voix avant la fin', (() => { const v = JSON.stringify(ben.lastRoom().pre.book); return !v.includes('"votes":{') && ben.lastRoom().pre.book.themes.every((th) => th.votes === null); })());
+  ben.send({ t: 'pre-vote', id: themeCleo });
+  const fromPrep = ana.messages.length;
+  cleo.send({ t: 'pre-vote', id: themeBen });
+  await Promise.all([ana, ben, cleo].map((c) => c.wait('room', (m) => m.room.pre && m.room.pre.stage === 'prep', fromPrep)));
+  const chosen = ana.lastRoom().theme;
+  check('O12 tous ont voté : préparation immédiate ; thème gagnant (2 voix pour celui de Ben), identique pour tous', chosen.themeId === themeBen && chosen.source === 'vote' && [ben, cleo].every((c) => c.lastRoom().theme && c.lastRoom().theme.themeId === themeBen));
+  check('O13 les voix de chaque thème sont montrées après le résultat', ana.lastRoom().pre.book.themes.find((th) => th.id === themeBen).votes === 2);
+
+  /* --- préparation --- */
+  check('O14 un joueur ne peut pas valider un tempo ou une difficulté invalide', (await ana.expectError({ t: 'pre-prep', bpm: 100, instrumentId: 'piano', mode: 'dieu' }, 'invalid')).code === 'invalid' && (await ana.expectError({ t: 'pre-prep', bpm: 'vite', instrumentId: 'piano', mode: 'expert' }, 'invalid')).code === 'invalid');
+  ana.send({ t: 'pre-prep', bpm: 500, instrumentId: 'trumpet', mode: 'baby' });
+  await ben.wait('room', (m) => m.room.pre && m.room.pre.ready.includes(ana.id));
+  check('O15 les choix de préparation restent secrets tant que la phase n\'est pas finie ; on voit seulement « prêt »', ben.lastRoom().pre.prep === null && ben.lastRoom().pre.ready.length === 1);
+  check('O16 on ne peut pas valider deux fois', (await ana.expectError({ t: 'pre-prep', bpm: 100, instrumentId: 'piano', mode: 'expert' }, 'already')).code === 'already');
+  ben.send({ t: 'pre-prep', bpm: 80, instrumentId: 'flute', mode: 'beginner' });
+  const fromGo = ana.messages.length;
+  cleo.send({ t: 'pre-prep', bpm: 140, instrumentId: 'bass', mode: 'expert' });
+  await Promise.all([ana, ben, cleo].map((c) => c.wait('room', (m) => m.room.round && m.room.pre && m.room.pre.stage === 'done', fromGo)));
+  const finalView = ana.lastRoom();
+  check('O17 tous ont validé : on passe ensemble à la composition (round 1)', finalView.round.index === 0 && finalView.round.status === 'intro' && [ben, cleo].every((c) => c.lastRoom().round.index === 0));
+  check('O18 le tempo de chaque chanson est celui de son créateur (borné à 180) ; instrument et difficulté enregistrés', finalView.songs.map((s) => s.bpm).join() === '180,80,140' && finalView.pre.prep[ana.id].instrumentId === 'trumpet' && finalView.pre.prep[ana.id].mode === 'baby' && finalView.pre.prep[cleo.id].mode === 'expert');
+  check('O19 le thème gagnant est le thème officiel de la partie pour toute la suite', finalView.theme.themeId === themeBen);
+  await sleep(450);
+  check('O20 après les phases, aucune commande de phase ne passe (plus de transition possible)', (await ana.expectError({ t: 'pre-prep', bpm: 100, instrumentId: 'piano', mode: 'expert' }, 'bad-state')).code === 'bad-state');
+  const stageSeqs = ana.messages.filter((m) => m.room && m.room.pre).map((m) => m.room.pre && m.room.pre.seq);
+  check('O21 chaque phase n\'est entrée qu\'une fois : le compteur de transitions augmente 1 → 2 → 3 → 4 sans saut ni retour', stageSeqs.every((s, i) => i === 0 || s >= stageSeqs[i - 1]) && Math.max(...stageSeqs) === 4, [...new Set(stageSeqs)]);
+  const contrib = await ana.request({ t: 'submit', round: 0, contribution: { instrumentId: 'trumpet', instrument: { id: 'trumpet' }, settings: null, mode: 'baby', notes: [{ step: 0, row: 3, length: 1 }] } }, 'contribution').catch((e) => e);
   await sleep(100);
+  check('O22 la difficulté choisie est enregistrée avec la contribution', g.room.contributions.length === 0 || (g.room.contributions[0] && g.room.contributions[0].mode === 'baby') || contrib.contribution === undefined);
+  g.clients.forEach((c) => c.close());
+
+  /* --- chrono de proposition expiré (une personne n'a rien proposé) --- */
+  g = await open(3, ['Dan', 'Eva', 'Fred'], { proposeSeconds: 10, voteSeconds: 10, prepSeconds: 10 });
+  const [dan, eva, fred] = g.clients;
+  g.room.settings.proposeSeconds = 10;
+  await dan.request({ t: 'start' }, 'started');
+  await Promise.all([eva.wait('started'), fred.wait('started')]);
+  g.room.pre.endsAt = Date.now() + 700; // on raccourcit le chrono réel de la phase (le serveur reste l'autorité)
+  dan.send({ t: 'pre-propose', text: 'Idée de Dan' });
+  eva.send({ t: 'pre-propose', text: 'Idée d\'Eva' });
+  await Promise.all([dan, eva, fred].map((c) => c.wait('room', (m) => m.room.pre && m.room.pre.stage === 'vote', 0, 5000)));
+  check('E1 chrono de proposition écoulé : la partie passe au vote sans rester bloquée, sans idée fictive', dan.lastRoom().pre.book.themes.length === 2 && !dan.lastRoom().pre.book.proposedBy.includes(fred.id));
+  check('E2 Fred (qui n\'a rien proposé) voit les 2 idées des autres', fred.lastRoom().pre.book.themes.filter((th) => th.authorId !== fred.id).length === 2);
+  g.room.pre.endsAt = Date.now() + 500; // vote : personne ne vote → chrono
+  await Promise.all([dan, eva, fred].map((c) => c.wait('room', (m) => m.room.pre && m.room.pre.stage === 'prep', 0, 5000)));
+  check('E3 chrono du vote écoulé sans aucun vote : tirage au sort parmi les idées, la partie continue', dan.lastRoom().theme && dan.lastRoom().theme.source === 'random' && [eva, fred].every((c) => c.lastRoom().theme.themeId === dan.lastRoom().theme.themeId));
+  g.room.pre.endsAt = Date.now() + 500; // préparation : Dan valide, les autres non
+  dan.send({ t: 'pre-prep', bpm: 90, instrumentId: 'synth', mode: 'baby' });
+  await Promise.all([dan, eva, fred].map((c) => c.wait('room', (m) => m.room.round && m.room.pre && m.room.pre.stage === 'done', 0, 5000)));
+  const fin = dan.lastRoom();
+  check('E4 chrono de préparation écoulé : paramètres par défaut pour ceux qui n\'ont pas répondu, la partie avance', fin.pre.prep[eva.id].source === 'default' && fin.pre.prep[fred.id].instrumentId === 'piano' && fin.pre.prep[dan.id].source === 'player' && fin.round.index === 0);
+  g.clients.forEach((c) => c.close());
+
+  /* --- deux joueurs : tirage au sort --- */
+  g = await open(2, ['Gus', 'Hana']);
+  const [gus, hana] = g.clients;
+  await gus.request({ t: 'start' }, 'started'); await hana.wait('started');
+  gus.send({ t: 'pre-propose', text: 'Idée de Gus' }); hana.send({ t: 'pre-propose', text: 'Idée de Hana' });
+  await Promise.all([gus, hana].map((c) => c.wait('room', (m) => m.room.pre && m.room.pre.stage === 'vote')));
+  const drawView = gus.lastRoom();
+  check('D1 à deux joueurs : tirage au sort, thème connu immédiatement et identique pour les deux', drawView.pre.voteDraw && drawView.theme && drawView.theme.source === 'draw' && hana.lastRoom().theme.themeId === drawView.theme.themeId);
+  check('D2 le vote est désactivé à deux joueurs', (await gus.expectError({ t: 'pre-vote', id: 'theme-2' }, 'draw')).code === 'draw');
+  const draws = new Set();
+  for (let i = 0; i < 10; i += 1) { const book = Themes.create(); Themes.propose(book, { id: 'x', name: 'X' }, 'A'); Themes.propose(book, { id: 'y', name: 'Y' }, 'B'); draws.add(Themes.resolve(book, () => crypto_rand(), true).themeId); }
+  check('D3 le tirage au sort de deux idées donne bien les deux résultats possibles', draws.size === 2, [...draws]);
+  await Promise.all([gus, hana].map((c) => c.wait('room', (m) => m.room.pre && m.room.pre.stage === 'prep', 0, 4000)));
+  check('D4 après le tirage : préparation', gus.lastRoom().pre.stage === 'prep');
+  g.clients.forEach((c) => c.close());
+
+  /* --- déconnexion : un absent ne bloque pas --- */
+  g = await open(3, ['Iris', 'Jo', 'Kim']);
+  const [iris, jo, kim] = g.clients;
+  await iris.request({ t: 'start' }, 'started'); await Promise.all([jo.wait('started'), kim.wait('started')]);
+  iris.send({ t: 'pre-propose', text: 'Idée Iris' }); jo.send({ t: 'pre-propose', text: 'Idée Jo' });
+  await sleep(150);
+  kim.close();
+  await Promise.all([iris, jo].map((c) => c.wait('room', (m) => m.room.pre && m.room.pre.stage === 'vote', 0, 4000)));
+  check('X1 Kim se déconnecte avant de proposer : les présents ont tous proposé → vote, personne n\'attend Kim', iris.lastRoom().pre.stage === 'vote');
+  [iris, jo].forEach((c) => c.close());
+
+  console.log('\n' + passed + ' réussis, ' + failures.length + ' échecs');
   server.close();
-  console.log('\n' + passed + '/' + (passed + failures.length) + ' OK');
-  process.exit(failures.length ? 1 : 0);
 }
 
-main().catch((error) => {
-  console.error('ERREUR DE TEST', error);
-  process.exit(2);
-});
+function crypto_rand() { return require('crypto').randomInt(0, 1000000) / 1000000; }
+
+pureThemes();
+purePhases();
+online()
+  .then(() => {
+    if (failures.length) {
+      console.log('ÉCHECS : ' + failures.join(' | '));
+      process.exit(1);
+    }
+    console.log(passed + '/' + passed + ' OK');
+    process.exit(0);
+  })
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });

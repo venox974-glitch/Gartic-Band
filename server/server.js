@@ -18,13 +18,13 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { WebSocketServer } = require('ws');
-const { RoomManager, LIMITS } = require('./rooms');
+const { RoomManager, LIMITS, PhoneRoom } = require('./rooms');
 
 const PORT = Number(process.env.PORT) || 8080;
 const HOST = process.env.HOST || '0.0.0.0';
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '').split(',').map((entry) => entry.trim()).filter(Boolean);
 const ROOT = path.resolve(__dirname, '..');
-const PUBLIC_ENTRIES = new Set(['index.html', 'css', 'js', 'vendor']);
+const PUBLIC_ENTRIES = new Set(['index.html', 'css', 'js', 'vendor', 'hats']);
 const LOBBY_GRACE_MS = 10 * 1000;
 
 const TYPES = {
@@ -209,6 +209,35 @@ function broadcast(room, message, exceptId) {
 
 function sendRoom(room) {
   broadcast(room, { t: 'room', room: room.view() });
+  phoneSync(room);
+}
+
+/**
+ * Mode Phone : chaque joueur reçoit EN PRIVÉ ce qu'il doit voir (le maillon précédent de sa chaîne), une fois par round ;
+ * à la révélation, toutes les chaînes sont envoyées à tout le monde (une fois par démarrage).
+ */
+function phoneSync(room, onlyPlayer) {
+  const phone = room.phone;
+  if (!phone) return;
+  if (phone.round && phone.round.status !== 'done') {
+    const tag = phone.round.index;
+    room.players.forEach((player) => {
+      if (!player.connected || !player.send || (onlyPlayer && player.id !== onlyPlayer.id)) return;
+      if (!onlyPlayer && player.phoneSent === tag) return;
+      player.phoneSent = tag;
+      const input = PhoneRoom.inputFor(room, player.id);
+      if (input) player.send(JSON.stringify({ t: 'phone-input', input }));
+    });
+  }
+  if (phone.reveal.stage !== 'waiting') {
+    const chains = PhoneRoom.chainsPayload(room);
+    room.players.forEach((player) => {
+      if (!player.connected || !player.send || (onlyPlayer && player.id !== onlyPlayer.id)) return;
+      if (!onlyPlayer && player.phoneChains === phone.purged + ':' + phone.reveal.stage) return;
+      player.phoneChains = phone.purged + ':' + phone.reveal.stage;
+      player.send(JSON.stringify({ t: 'phone-chains', chains }));
+    });
+  }
 }
 
 /** Fait avancer le salon avec l'horloge puis diffuse ce qui a changé (contributions vides comprises, puis l'état du salon). */
@@ -238,6 +267,8 @@ wss.on('connection', (ws, request) => {
     lobbyTimers.delete(key);
     sendTo(ws, { t: 'welcome', you: { id: result.player.id, token: result.player.token, name: result.player.name }, room: result.room.view(), reconnected: Boolean(result.reconnected) });
     if (result.room.status !== 'lobby') sendTo(ws, { t: 'sync', room: result.room.view(), contributions: result.room.contributions });
+    result.player.phoneSent = undefined; // un joueur qui revient reçoit de nouveau son maillon
+    result.player.phoneChains = undefined;
     sendRoom(result.room);
   }
 
@@ -268,7 +299,7 @@ wss.on('connection', (ws, request) => {
       case 'create': {
         if (context.room) return fail(ws, { code: 'already', error: 'Tu es déjà dans un salon.' });
         if (tooManyAttempts(ip)) return fail(ws, { code: 'rate', error: 'Trop d\'essais : attends une minute.' });
-        const result = manager.create({ name: message.name, max: message.max }, sender);
+        const result = manager.create({ name: message.name, max: message.max, skin: message.skin }, sender);
         if (!result.ok) return fail(ws, result);
         attach(result);
         break;
@@ -277,7 +308,7 @@ wss.on('connection', (ws, request) => {
       case 'join': {
         if (context.room) return fail(ws, { code: 'already', error: 'Tu es déjà dans un salon.' });
         if (tooManyAttempts(ip)) return fail(ws, { code: 'rate', error: 'Trop d\'essais : attends une minute.' });
-        const result = manager.join({ code: message.code, name: message.name, token: message.token }, sender);
+        const result = manager.join({ code: message.code, name: message.name, token: message.token, skin: message.skin }, sender);
         if (!result.ok) return fail(ws, result);
         attach(result);
         break;
@@ -296,6 +327,7 @@ wss.on('connection', (ws, request) => {
         const result = manager.start(room, player.id);
         if (!result.ok) return fail(ws, result);
         broadcast(room, { t: 'started', room: room.view() });
+        phoneSync(room);
         break;
       }
 
@@ -308,17 +340,29 @@ wss.on('connection', (ws, request) => {
         break;
       }
 
-      case 'theme-propose':
-      case 'theme-remove':
-      case 'theme-vote-open':
-      case 'theme-vote':
-      case 'theme-vote-close':
-      case 'theme-pick':
-      case 'theme-default': {
+      case 'phone-submit': {
         if (!room) return;
-        const result = manager.themeCommand(room, player.id, message.t.slice('theme-'.length), message);
+        const result = manager.phoneSubmit(room, player.id, { round: message.round, link: message.link });
         if (!result.ok) return fail(ws, result);
-        sendRoom(room); // tous les joueurs voient les mêmes propositions, les mêmes voix, le même résultat
+        advance(room); // tous prêts ? alors le round suivant démarre tout de suite
+        break;
+      }
+
+      case 'phone-reveal': {
+        if (!room) return;
+        const result = manager.phoneReveal(room, player.id, String(message.command || ''));
+        if (!result.ok) return fail(ws, result);
+        sendRoom(room);
+        break;
+      }
+
+      case 'pre-propose':
+      case 'pre-vote':
+      case 'pre-prep': {
+        if (!room) return;
+        const result = manager.preCommand(room, player.id, message.t.slice('pre-'.length), message);
+        if (!result.ok) return fail(ws, result);
+        advance(room); // tous ont fini ? alors la page suivante s'ouvre tout de suite
         break;
       }
 
@@ -385,7 +429,6 @@ wss.on('connection', (ws, request) => {
 // Horloge des parties : chrono, fin des annonces, délai de grâce. Une fois par seconde suffit (les clients affichent leur propre décompte).
 setInterval(() => {
   for (const room of manager.rooms.values()) {
-    if (room.status === 'lobby' && manager.tickLobby(room)) sendRoom(room); // fin du temps de vote
     if (room.status === 'playing') {
       const out = manager.tick(room);
       if (out.changed) {

@@ -35,7 +35,7 @@
     tracksTitle: $('tracks-title'),
     instrumentPanel: $('instrument-panel'),
     instrumentPicker: $('instrument-picker'),
-    btnNewInstrument: $('btn-new-instrument'),
+    quickInstrument: $('quick-instrument'),
     instrumentFor: $('instrument-for'),
     stageChip: $('stage-chip'),
     stageName: $('stage-name'),
@@ -47,7 +47,6 @@
     vowelButtons: $('vowel-buttons'),
     btnNoteDelete: $('btn-note-delete'),
     rollLegend: $('roll-legend'),
-    gridBar: $('grid-bar'),
     gridUnits: $('grid-units'),
     gridMagnet: $('grid-magnet'),
     modeSwitch: $('mode-switch'),
@@ -67,11 +66,11 @@
   };
 
   const FREE_TIPS =
-    '💡 Clique sur la grille pour poser une note (glisse pour en poser plusieurs). Attrape une note pour la déplacer, ' +
-    'tire sa poignée de droite pour l\'allonger, clique dessus pour l\'enlever. Choisis le pas de la grille ou garde <kbd>Alt</kbd> pour placer librement. ' +
+    'Clique sur la grille pour poser UNE note (un clic = une note, même si tu maintiens). Attrape une note pour la déplacer, ' +
+    'tire sa poignée de droite pour l\'allonger, clique dessus sans bouger pour l\'enlever. Choisis le pas de la grille ou garde <kbd>Alt</kbd> pour placer librement. ' +
     'Clique ou glisse dans la règle des temps pour placer la barre de lecture. <kbd>Espace</kbd> lance et met en pause. ' +
-    'Zoom : boutons ↔ ↕, <kbd>Ctrl</kbd> + molette (temps), <kbd>Ctrl</kbd> + <kbd>Maj</kbd> + molette (hauteur). Clique le clavier pour écouter une note. ' +
-    'Trois modes : 👶 Baby (une gamme), 🎹 Débutant (touches blanches), 🎼 Expert (tout).';
+    'Zoom : boutons de zoom, <kbd>Ctrl</kbd> + molette (temps), <kbd>Ctrl</kbd> + <kbd>Maj</kbd> + molette (hauteur). Clique le clavier pour écouter une note. ' +
+    'Trois modes : Baby (une gamme), Débutant (touches blanches), Expert (tout).';
   const FREE_LEGEND = '';
 
   // Éléments du piano-roll, reconstruits par renderRoll().
@@ -92,6 +91,12 @@
   // Geste en cours : pose de notes (glisser), déplacement ou redimensionnement d'une note.
   let gesture = null;
   let selectedNoteId = null; // piste voix robot : la note dont on règle la voyelle
+  let clipboard = null; // copier-coller : notes copiées, positions relatives à la première
+  let mouseOnRoll = null; // dernière position de la souris au-dessus de la grille (pour coller)
+  let multi = { trackId: null, ids: new Set() }; // sélection de plusieurs notes (glisser une boîte, Maj + clic)
+  let tool = 'pencil'; // outil actif : 'pencil' (poser / allonger) ou 'select' (sélectionner / déplacer)
+  let selBarEl = null; // barre d'actions sous la sélection (reconstruite avec la grille)
+  let selBarRaf = 0;
   let toastTimer = null;
   const statusListeners = [];
 
@@ -169,27 +174,27 @@
       main.setAttribute('aria-pressed', String(isActive));
       main.append(create('span', 'track-chip'));
       const info = create('span', 'track-info');
-      const title = author ? author.avatar + ' ' + author.name : track.name;
+      const title = author ? author.name : track.name;
       const content =
         instrument.kind === 'audio'
           ? track.clip
             ? 'enregistrement ' + track.clip.duration.toFixed(1).replace('.', ',') + ' s'
             : 'pas encore enregistré'
           : plural(track.notes.length, 'note', 'notes');
-      const details = instrument.icon + ' ' + instrument.label + ' · ' + content + (track.locked ? ' · 🔒' : '');
+      const details = instrument.label + ' · ' + content + (track.locked ? ' · verrouillée' : '');
       info.append(create('strong', null, title), create('small', null, details));
       main.append(info);
       row.append(main);
 
       if (!gameMode) {
-        const mute = create('button', 'icon-btn', track.muted ? '🔇' : '🔊');
+        const mute = GB.icons.set(create('button', 'icon-btn'), track.muted ? 'mute' : 'volume');
         mute.type = 'button';
         mute.dataset.action = 'mute';
         mute.title = track.muted ? 'Réactiver le son de cette piste' : 'Couper le son de cette piste';
         mute.setAttribute('aria-label', mute.title);
         mute.setAttribute('aria-pressed', String(track.muted));
 
-        const remove = create('button', 'icon-btn danger', '🗑');
+        const remove = GB.icons.set(create('button', 'icon-btn danger'), 'trash');
         remove.type = 'button';
         remove.dataset.action = 'delete';
         remove.disabled = !store.canRemoveTrack();
@@ -212,7 +217,9 @@
     el.instrumentPicker.style.setProperty('--track-color', track.color);
     el.instrumentPicker.innerHTML = '';
 
-    GB.instruments.pickable().forEach((instrumentId) => {
+    const pickIds = GB.instruments.pickable();
+    if (!pickIds.includes(track.instrumentId) && GB.INSTRUMENTS[track.instrumentId]) pickIds.push(track.instrumentId); // son déséquipé mais déjà utilisé par cette piste
+    pickIds.forEach((instrumentId) => {
       const instrument = GB.INSTRUMENTS[instrumentId];
       const button = create('button', 'instrument-btn');
       button.type = 'button';
@@ -220,11 +227,48 @@
       button.disabled = track.locked;
       button.classList.toggle('active', instrumentId === track.instrumentId);
       button.setAttribute('aria-pressed', String(instrumentId === track.instrumentId));
-      button.append(create('span', 'ins-icon', instrument.icon), create('span', null, instrument.label));
+      button.append(GB.icons.el(instrument.icon, 'ins-icon'), create('span', null, instrument.label));
       el.instrumentPicker.append(button);
     });
-    if (el.btnNewInstrument) el.btnNewInstrument.disabled = track.locked;
     if (GB.instrumentUI) GB.instrumentUI.renderPanel();
+    renderQuickInstrument();
+  }
+
+  /** Sélecteur compact d'instrument (au-dessus du piano-roll) : change le timbre de la couche sans toucher aux notes. */
+  function renderQuickInstrument() {
+    const select = el.quickInstrument;
+    if (!select) return;
+    const track = store.getSelectedTrack();
+    select.innerHTML = '';
+    const ids = GB.instruments.pickable();
+    const addGroup = (label, list) => {
+      if (!list.length) return;
+      const group = create('optgroup');
+      group.label = label;
+      list.forEach((id) => {
+        const option = create('option', null, GB.INSTRUMENTS[id].label);
+        option.value = id;
+        group.append(option);
+      });
+      select.append(group);
+    };
+    addGroup('Instruments', ids.filter((id) => !GB.INSTRUMENTS[id].sample && !GB.INSTRUMENTS[id].custom));
+    addGroup('Mes instruments', ids.filter((id) => GB.INSTRUMENTS[id].custom));
+    addGroup('Mes sons', ids.filter((id) => GB.INSTRUMENTS[id].sample));
+    if (track && !ids.includes(track.instrumentId) && GB.INSTRUMENTS[track.instrumentId]) {
+      const extra = create('option', null, GB.INSTRUMENTS[track.instrumentId].label);
+      extra.value = track.instrumentId;
+      select.append(extra);
+    }
+    const make = create('option', null, 'Créer / modifier mes instruments…');
+    make.value = '__synth';
+    select.append(make);
+    const more = create('option', null, 'Importer / gérer mes sons…');
+    more.value = '__sounds';
+    select.append(more);
+    if (track) select.value = track.instrumentId;
+    const inGame = isGameMode();
+    select.disabled = !track || track.locked || (inGame && GB.game.state.phase !== 'compose');
   }
 
   function renderStageHeader() {
@@ -233,10 +277,11 @@
     const instrument = GB.INSTRUMENTS[track.instrumentId];
     const author = isGameMode() && track.author ? GB.game.playerById(track.author) : null;
     el.stageName.textContent = author ? 'Ta couche' : track.name;
-    el.stageInstrument.textContent = instrument.icon + ' ' + instrument.label;
+    GB.icons.set(el.stageInstrument, instrument.icon, instrument.label);
     el.stageChip.style.setProperty('--track-color', track.color);
     el.btnClear.disabled = track.locked || !store.hasContent(track.id);
-    el.btnClear.textContent = instrument.kind === 'audio' ? '🧹 Effacer l\'enregistrement' : '🧹 Effacer les notes de la piste';
+    GB.icons.set(el.btnClear, 'trash', instrument.kind === 'audio' ? 'Effacer l\'enregistrement' : 'Effacer les notes');
+    el.btnClear.title = instrument.kind === 'audio' ? 'Efface l\'enregistrement de cette piste' : 'Efface toutes les notes de ta couche';
     if (GB.gameUI) GB.gameUI.refreshActions();
   }
 
@@ -246,8 +291,13 @@
     el.bpmSlider.max = CONFIG.BPM_MAX;
     el.bpmSlider.value = bpm;
     el.bpmValue.textContent = bpm;
-    el.btnBpmDown.disabled = bpm <= CONFIG.BPM_MIN;
-    el.btnBpmUp.disabled = bpm >= CONFIG.BPM_MAX;
+    // En partie, le tempo est celui de la chanson (choisi par son créateur à la préparation) : on ne le change plus.
+    const fixed = isGameMode();
+    el.bpmSlider.disabled = fixed;
+    el.btnBpmDown.disabled = fixed || bpm <= CONFIG.BPM_MIN;
+    el.btnBpmUp.disabled = fixed || bpm >= CONFIG.BPM_MAX;
+    el.bpmSlider.title = fixed ? 'Le tempo de cette chanson a été choisi à la préparation' : '';
+    if (GB.dock) GB.dock.refresh();
   }
 
   function renderTransport(status) {
@@ -256,8 +306,16 @@
     el.roll.classList.toggle('playing', status === 'playing');
     el.roll.classList.toggle('paused', status === 'paused');
 
-    el.btnPlay.textContent = status === 'playing' ? '⏸ Pause' : status === 'paused' ? '▶ Reprendre' : '▶ Lecture';
+    GB.icons.set(el.btnPlay, status === 'playing' ? 'pause' : 'play', status === 'playing' ? 'Pause' : status === 'paused' ? 'Reprendre' : 'Lecture');
     el.btnPlay.setAttribute('aria-label', status === 'playing' ? 'Pause' : 'Lecture');
+    const mobilePause = $('lt-play');
+    if (mobilePause) {
+      const label = status === 'playing' ? 'Pause' : status === 'paused' ? 'Reprendre' : 'Lecture';
+      mobilePause.innerHTML = GB.icons.svg(status === 'playing' ? 'pause' : 'play') + '<span class="lt-label">' + label + '</span>';
+      mobilePause.setAttribute('aria-label', label);
+      mobilePause.title = label;
+      mobilePause.classList.toggle('is-on', status === 'playing');
+    }
     el.btnStop.disabled = status === 'stopped';
     el.statusText.textContent = status === 'playing' ? 'En lecture' : status === 'paused' ? 'En pause' : "À l'arrêt";
 
@@ -342,12 +400,13 @@
     }
   }
 
+  /** Pas de la grille, nommé en valeurs de notes : 1/4 = un temps, 1/8 = un demi-temps, 1/16 = un quart de temps, 1/32 = un huitième de temps. */
   function unitLabel(unit) {
-    if (unit === 1) return ['Temps', 'Un repère par temps'];
-    if (unit === 0.5) return ['½', 'Demi-temps'];
-    if (unit === 0.25) return ['¼', 'Quart de temps'];
-    if (unit === 0.125) return ['⅛', 'Huitième de temps (très fin)'];
-    return ['⅓', 'Triolet : un temps coupé en trois'];
+    if (unit === 1) return ['1/4', '1/4 : un repère par temps'];
+    if (unit === 0.5) return ['1/8', '1/8 : un demi-temps'];
+    if (unit === 0.25) return ['1/16', '1/16 : un quart de temps'];
+    if (unit === 0.125) return ['1/32', '1/32 : un huitième de temps (très fin)'];
+    return ['Triolet', 'Triolet : un temps coupé en trois'];
   }
 
   /** Boutons de pas de la grille : ceux du mode courant. */
@@ -381,7 +440,7 @@
     noticeShown = hidden.length > 0;
     if (!hidden.length) return;
     el.modeNotice.innerHTML =
-      '<b>' + info.icon + ' ' + hidden.length + (hidden.length > 1 ? ' notes de cette piste sont' : ' note de cette piste est') + ' hors du mode ' + info.label + '.</b> ' +
+      '<b>' + GB.icons.svg(info.icon) + ' ' + hidden.length + (hidden.length > 1 ? ' notes de cette piste sont' : ' note de cette piste est') + ' hors du mode ' + info.label + '.</b> ' +
       (hidden.length > 1 ? 'Elles sont conservées et jouées normalement : leur ligne reste' : 'Elle est conservée et jouée normalement : sa ligne reste') + ' affichée en grisé (étiquette « hors mode »). ' +
       'Tu peux ' + (hidden.length > 1 ? 'les' : 'la') + ' déplacer ou ' + (hidden.length > 1 ? 'les' : 'la') + ' supprimer, mais pas poser de nouvelles notes sur ces lignes. Repasse en Expert pour tout retrouver.';
   }
@@ -411,11 +470,15 @@
   }
 
   /** Change de mode et/ou de gamme : seul l'affichage change, aucune note n'est touchée. */
-  function setView(patch) {
+  const difficultyListeners = [];
+
+  function setView(patch, silent) {
     const before = view.mode + view.scale;
+    const beforeMode = view.mode;
     if (patch.mode && GB.MODES[patch.mode]) view.mode = patch.mode;
     if (patch.scale && GB.SCALES[patch.scale]) view.scale = patch.scale;
     if (view.mode + view.scale === before) return;
+    if (view.mode !== beforeMode) difficultyListeners.forEach((listener) => listener(view.mode));
     saveView();
     clampGridToMode();
     renderGridUnits();
@@ -426,7 +489,7 @@
     store.getTracks().forEach((track) => {
       total += outOfModeNotes(track).length;
     });
-    showToast(info.icon + ' Mode ' + info.label + ' — ' + info.help + (total ? ' (' + total + ' note' + (total > 1 ? 's' : '') + ' hors mode conservée' + (total > 1 ? 's' : '') + ')' : ''));
+    if (!silent) showToast('Mode ' + info.label + ' — ' + info.help + (total ? ' (' + total + ' note' + (total > 1 ? 's' : '') + ' hors mode conservée' + (total > 1 ? 's' : '') + ')' : ''));
   }
 
   /* ----- zoom et défilement ----- */
@@ -460,6 +523,7 @@
     el.roll.classList.toggle('tiny', size.rowH < 17);
     applySubgrid(size.colW);
     applyViewControls();
+    updateSelectionBar();
     if (needCenter) {
       needCenter = false;
       el.roll.scrollLeft = 0;
@@ -591,6 +655,26 @@
     el.roll.scrollTop = Math.max(0, topMin * size.rowH);
   }
 
+  /** Texte de la plage de notes visible (ex. « Do3 – Si4 »), pour le menu Octaves. */
+  function visibleRangeText() {
+    const track = store.getSelectedTrack();
+    if (!track || el.roll.hidden || !visibleRows.length || isDrumsTrack(track)) return '—';
+    const size = layoutSizes();
+    const bodyH = Math.max(1, el.roll.clientHeight - size.headH);
+    const topIdx = Math.min(visibleRows.length - 1, Math.max(0, Math.floor(el.roll.scrollTop / size.rowH)));
+    const botIdx = Math.min(visibleRows.length - 1, Math.max(topIdx, Math.ceil((el.roll.scrollTop + bodyH) / size.rowH) - 1));
+    const name = (index) => GB.getRowLabel(track.instrumentId, visibleRows[visibleRows.length - 1 - index], track.settings);
+    return name(botIdx) + ' – ' + name(topIdx);
+  }
+
+  /** Abandonne le geste en cours sans rien poser ni déplacer (ex. un 2e doigt arrive pour pincer). */
+  function cancelGesture() {
+    if (gesture && (gesture.kind === 'tap' || gesture.kind === 'box')) {
+      clearGestureVisuals();
+      gesture = null;
+    }
+  }
+
   function octaveStep(direction) {
     const track = store.getSelectedTrack();
     if (!track || isDrumsTrack(track)) return;
@@ -716,6 +800,7 @@
     noteEl.dataset.noteId = note.id;
     noteEl.classList.toggle('is-new', Boolean(isNew));
     noteEl.classList.toggle('no-resize', !GB.INSTRUMENTS[track.instrumentId].resizable);
+    noteEl.classList.toggle('multi', multi.trackId === track.id && multi.ids.has(note.id));
     noteEl.append(create('span', 'note-body'), create('span', 'note-handle'));
     positionNoteElement(noteEl, track, note);
     noteEls.set(note.id, noteEl);
@@ -742,15 +827,16 @@
     if (isAudio) {
       el.roll.innerHTML = '';
       el.roll.hidden = true;
-      el.gridBar.hidden = true;
+      $('stage').classList.add('no-roll'); // piste voix : les outils de notes n'ont pas de sens
       el.modeNotice.hidden = true;
       selectedNoteId = null;
       renderVowelBar();
       return;
     }
     el.roll.hidden = false;
-    el.gridBar.hidden = false;
+    $('stage').classList.remove('no-roll');
     if (!store.getNote(track.id, selectedNoteId)) selectedNoteId = null;
+    if (multi.trackId !== track.id) multi = { trackId: track.id, ids: new Set() };
     const isDrums = GB.INSTRUMENTS[track.instrumentId].kind === 'drums';
     visibleRows = computeVisibleRows(track);
     const rowCount = visibleRows.length;
@@ -780,7 +866,7 @@
     }
     const ticks = create('div', 'header-ticks');
     const flag = create('div', 'scrub-flag');
-    flag.append(create('span', 'scrub-flag-label', '▶'));
+    flag.append(GB.icons.el('play', 'scrub-flag-label'));
     flag.title = 'Barre de lecture : glisse-la pour choisir où la musique démarre';
     header.append(ticks, flag);
     header.classList.add('scrubbable');
@@ -837,6 +923,17 @@
     });
 
     const otherTracks = store.getTracks().filter((other) => other.id !== track.id && !other.muted);
+    // Notes fantômes (en partie) : les notes des contributions déjà enregistrées, de la même famille de lignes (mélodie / batterie),
+    // dessinées discrètement sous les notes de la couche en cours. Elles ne se touchent pas et ne sont jamais modifiées.
+    const ghostTracks = isGameMode()
+      ? otherTracks.filter(
+          (other) =>
+            GB.INSTRUMENTS[other.instrumentId].kind !== 'audio' &&
+            GB.getRowCount(other.instrumentId) === GB.getRowCount(track.instrumentId) &&
+            isDrumsTrack(other) === isDrumsTrack(track)
+        )
+      : [];
+    const ghostedIds = new Set(ghostTracks.map((other) => other.id));
     for (let index = rowCount - 1; index >= 0; index -= 1) {
       const row = visibleRows[index];
       for (let step = 0; step < CONFIG.STEP_COUNT; step += 1) {
@@ -850,7 +947,7 @@
         cellGrid[row][step] = cell;
 
         // Petits points : départ des notes des autres pistes (pour voir toute la composition d'un coup d'œil).
-        const echoes = otherTracks.filter((other) => store.hasNote(other.id, step, row));
+        const echoes = otherTracks.filter((other) => !ghostedIds.has(other.id) && store.hasNote(other.id, step, row));
         if (echoes.length > 0) {
           const ghosts = create('span', 'ghosts');
           echoes.slice(0, 4).forEach((other) => {
@@ -869,6 +966,8 @@
     tipEl = create('div', 'drag-tip');
     tipEl.hidden = true;
     notesLayerEl.append(tipEl);
+    selBarEl = buildSelectionBar();
+    notesLayerEl.append(selBarEl);
     noteEls = new Map();
     track.notes.forEach((note) => createNoteElement(track, note, false));
 
@@ -879,8 +978,21 @@
     hoverEl.hidden = true;
     notesLayerEl.insertBefore(hoverEl, notesLayerEl.firstChild);
     emptyHintEl = create('div', 'empty-hint');
-    emptyHintEl.append(create('span', null, '✨ Clique sur la grille pour poser ta première note !'));
-    body.append(gridEl, subgridEl, notesLayerEl, playhead, emptyHintEl);
+    emptyHintEl.append(create('span', null, 'Clique sur la grille pour poser ta première note !'));
+    const ghostLayer = create('div', 'ghost-layer');
+    ghostLayer.setAttribute('aria-hidden', 'true');
+    ghostTracks.forEach((other) => {
+      other.notes.forEach((note) => {
+        if (visibleRows.indexOf(note.row) < 0) return; // ligne non affichée : on ne la fait pas apparaître pour un fantôme
+        const ghost = create('i', 'ghost-note');
+        ghost.style.setProperty('--c', other.color);
+        ghost.style.setProperty('--x', note.step);
+        ghost.style.setProperty('--w', displayLength(other, note));
+        ghost.style.setProperty('--y', topIndexOf(note.row));
+        ghostLayer.append(ghost);
+      });
+    });
+    body.append(gridEl, subgridEl, ghostLayer, notesLayerEl, playhead, emptyHintEl);
     el.roll.append(body);
 
     activeColumn = -1;
@@ -896,6 +1008,8 @@
     }
     updateNotice();
     updateEmptyHint();
+    updateSelectionBar();
+    updateHistoryButtons();
     renderVowelBar();
     if (selectedNoteId && noteEls.has(selectedNoteId)) noteEls.get(selectedNoteId).classList.add('selected');
     renderTransport(audio.getStatus());
@@ -1048,6 +1162,7 @@
     beatHeaders.forEach((beat) => beat.classList.remove('target'));
     if (tipEl) tipEl.hidden = true;
     if (gesture && gesture.originEl) gesture.originEl.remove();
+    if (gesture && gesture.originEls) gesture.originEls.forEach((marker) => marker.remove());
   }
 
   function pointerDownOnRoll(event) {
@@ -1062,11 +1177,21 @@
     const cell = event.target.closest('.cell');
     if (!noteEl && !cell) return;
     if (track.locked) {
-      showToast('Cette couche est verrouillée 🔒');
+      showToast('Cette couche est verrouillée');
       return;
     }
     audio.unlock(); // premier geste de l'utilisateur : le son est autorisé
     event.preventDefault();
+    if (event.pointerType === 'touch' && !event.isPrimary) return; // un 2e doigt ne déclenche rien de plus
+    if (tool === 'select') {
+      beginSelectTool(event, track, noteEl);
+      return;
+    }
+    if (noteEl && event.shiftKey && event.pointerType !== 'touch') {
+      // Maj + clic sur une note : l'ajoute à la sélection (ou l'en retire), sans l'effacer ni la déplacer.
+      toggleMulti(track, noteEl.dataset.noteId);
+      return;
+    }
     if (noteEl) beginNoteGesture(event, track, noteEl);
     else beginPaint(event, track);
   }
@@ -1113,7 +1238,8 @@
     el.gridReadout.textContent = text;
   }
 
-  const READOUT_DEFAULT = 'Maintiens Alt pour placer librement';
+  const TOUCH_UI = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+  const READOUT_DEFAULT = TOUCH_UI ? 'Touche pour poser une note · glisse pour défiler' : 'Maintiens Alt pour placer librement';
 
   /* ----- grille : pas, aimant, repères ----- */
 
@@ -1126,7 +1252,7 @@
     });
     el.gridMagnet.classList.toggle('active', magnet);
     el.gridMagnet.setAttribute('aria-pressed', String(magnet));
-    el.gridMagnet.textContent = magnet ? '🧲 Aimant' : '🖐 Libre';
+    GB.icons.set(el.gridMagnet, magnet ? 'magnet' : 'hand', magnet ? 'Aimant' : 'Libre');
     const forced = modeInfo().forceMagnet;
     el.gridMagnet.disabled = forced;
     el.gridMagnet.title = forced ? 'Mode Baby : les notes se calent toujours sur la grille' : 'Aimant : les notes se calent sur la grille. Garde Alt enfoncée pour placer librement.';
@@ -1134,6 +1260,7 @@
     el.roll.dataset.unit = String(unit);
     el.roll.classList.toggle('free-grid', !magnet);
     if (subgridEl) subgridEl.className = 'subgrid' + (magnet ? '' : ' faint');
+    if (GB.dock) GB.dock.refresh();
   }
 
   function chooseGrid(patch) {
@@ -1143,7 +1270,7 @@
     applyLayout();
   }
 
-  /** Repère sous le pointeur : montre l'endroit exact où une note serait posée. */
+  /** Repère sous le pointeur : une case de la TAILLE DE LA GRILLE CHOISIE (temps, demi, quart…) montre où la note serait posée. */
   function onRollHover(event) {
     if (!hoverEl || gesture || scrub || !gridEl) return;
     const overNote = event.target.closest && event.target.closest('.note');
@@ -1154,17 +1281,437 @@
       return;
     }
     const geometry = gridGeometry();
-    const step = placementAt(geometry, event.clientX, bypassOf(event));
+    const bypass = bypassOf(event);
+    const step = placementAt(geometry, event.clientX, bypass);
+    const row = visualRowAt(geometry, event.clientY);
+    const track = store.getSelectedTrack();
+    const snapped = store.grid.magnet && !bypass;
     hoverEl.hidden = false;
+    hoverEl.classList.toggle('blocked', Boolean(track) && !rowAllowed(track, row));
+    hoverEl.classList.toggle('free', !snapped);
     hoverEl.style.setProperty('--x', step);
+    hoverEl.style.setProperty('--w', snapped ? Math.min(store.grid.unit, CONFIG.STEP_COUNT - step) : 0.1);
+    hoverEl.style.setProperty('--y', topIndexOf(row));
     showReadout('Ici : ' + describeBeat(step));
   }
 
   /* ----- poser des notes (clic ou glisser sur des cellules vides) ----- */
 
   function beginPaint(event, track) {
-    gesture = { kind: 'paint', pointerId: event.pointerId, tried: new Set(), free: isFreeNow(event) };
-    paintAt(track, event);
+    if (event.pointerType === 'touch') {
+      // Au doigt : un TAP pose la note, mais un glissement fait défiler la grille (comportement natif du téléphone).
+      // On attend donc le relâchement pour savoir lequel des deux c'est.
+      gesture = {
+        kind: 'tap',
+        pointerId: event.pointerId,
+        trackId: track.id,
+        startX: event.clientX,
+        startY: event.clientY,
+        startAt: performance.now(),
+        down: { clientX: event.clientX, clientY: event.clientY, altKey: false, pointerId: event.pointerId },
+      };
+      return;
+    }
+    // Souris / stylet : un clic = UNE note (posée au relâchement). Si on glisse avant de relâcher : une boîte de sélection.
+    // Avec Maj, la boîte s'ajoute à la sélection existante et un simple clic ne pose rien.
+    if (hoverEl) hoverEl.hidden = true;
+    gesture = {
+      kind: 'box',
+      pointerId: event.pointerId,
+      trackId: track.id,
+      startX: event.clientX,
+      startY: event.clientY,
+      shift: event.shiftKey,
+      moved: false,
+      base: new Set(event.shiftKey && multi.trackId === track.id ? multi.ids : []),
+      boxEl: null,
+      down: { clientX: event.clientX, clientY: event.clientY, altKey: event.altKey, pointerId: event.pointerId },
+    };
+  }
+
+  /* ----- Annuler / Rétablir (notes de la piste affichée) ----- */
+
+  const HISTORY_MAX = 60;
+  let history = new Map(); // id de piste -> { undo: [], redo: [], cur: { notes, inst }, sig }
+
+  const notesSignature = (track) => JSON.stringify(track.notes.map((note) => [note.id, note.step, note.row, note.length, note.vowel || '']));
+  const notesSnapshot = (track) => ({ notes: track.notes.map((note) => Object.assign({}, note)), inst: track.instrumentId });
+
+  function historyOf(track) {
+    let entry = history.get(track.id);
+    if (!entry) {
+      entry = { undo: [], redo: [], cur: notesSnapshot(track), sig: notesSignature(track) };
+      history.set(track.id, entry);
+    }
+    return entry;
+  }
+
+  function resetHistory() {
+    history = new Map();
+    updateHistoryButtons();
+  }
+
+  function updateHistoryButtons() {
+    const track = store.getSelectedTrack();
+    const entry = track ? history.get(track.id) : null;
+    const canUndo = Boolean(entry && entry.undo.length) && !track.locked;
+    const canRedo = Boolean(entry && entry.redo.length) && !track.locked;
+    [['lt-undo', canUndo], ['lt-redo', canRedo]].forEach(([id, on]) => {
+      const button = $(id);
+      if (button) button.disabled = !on;
+    });
+  }
+
+  /** Après chaque geste ou clic : si les notes de la piste ont changé, l'état d'avant devient un pas d'« Annuler ». */
+  function recordHistory() {
+    const track = store.getSelectedTrack();
+    if (!track || el.roll.hidden) return;
+    const entry = historyOf(track);
+    if (entry.cur.inst !== track.instrumentId) {
+      // Autre instrument : les lignes ne correspondent plus, on repart d'un historique propre.
+      history.delete(track.id);
+      historyOf(track);
+      updateHistoryButtons();
+      return;
+    }
+    const sig = notesSignature(track);
+    if (sig === entry.sig) {
+      updateHistoryButtons();
+      return;
+    }
+    entry.undo.push(entry.cur);
+    if (entry.undo.length > HISTORY_MAX) entry.undo.shift();
+    entry.redo = [];
+    entry.cur = notesSnapshot(track);
+    entry.sig = sig;
+    updateHistoryButtons();
+  }
+
+  function stepHistory(direction) {
+    const track = store.getSelectedTrack();
+    if (!track || track.locked || el.roll.hidden || gesture) return;
+    recordHistory();
+    const entry = historyOf(track);
+    const from = direction < 0 ? entry.undo : entry.redo;
+    const to = direction < 0 ? entry.redo : entry.undo;
+    if (!from.length) return;
+    const target = from[from.length - 1];
+    if (target.inst !== track.instrumentId) {
+      resetHistory();
+      return;
+    }
+    from.pop();
+    to.push(entry.cur);
+    entry.cur = target;
+    track.notes.length = 0; // même tableau (l'audio le relit tel quel)
+    target.notes.forEach((note) => track.notes.push(Object.assign({}, note)));
+    entry.sig = notesSignature(track);
+    selectedNoteId = null;
+    multi = { trackId: track.id, ids: new Set() };
+    renderRoll();
+    refreshAfterNoteCountChange();
+    renderVowelBar();
+    updateHistoryButtons();
+    showReadout(direction < 0 ? 'Annulé' : 'Rétabli');
+  }
+
+  /* ----- outils : Crayon / Sélection ----- */
+
+  /**
+   * Outil Sélection (souris ET doigt) :
+   *  - sur une note : la sélectionne (au doigt, un tap ajoute / retire la note de la sélection) ; la glisser déplace la sélection ;
+   *  - sur le vide : tracer une zone de sélection ; un simple tap / clic défait la sélection (aucune note n'est posée).
+   * La poignée de droite allonge / raccourcit toujours la note, comme avec le Crayon.
+   */
+  function beginSelectTool(event, track, noteEl) {
+    if (!noteEl) {
+      if (hoverEl) hoverEl.hidden = true;
+      gesture = {
+        kind: 'box',
+        pointerId: event.pointerId,
+        trackId: track.id,
+        startX: event.clientX,
+        startY: event.clientY,
+        shift: event.shiftKey,
+        selectTool: true,
+        moved: false,
+        base: new Set(event.shiftKey && multi.trackId === track.id ? multi.ids : []),
+        boxEl: null,
+        down: { clientX: event.clientX, clientY: event.clientY, altKey: false, pointerId: event.pointerId },
+      };
+      return;
+    }
+    const id = noteEl.dataset.noteId;
+    const touch = event.pointerType === 'touch';
+    const wasSelected = multi.trackId === track.id && multi.ids.has(id);
+    if (!wasSelected) { // toucher la poignée sélectionne aussi la note (sur téléphone, les notes sont étroites)
+      const keep = event.shiftKey || touch;
+      const ids = new Set(keep && multi.trackId === track.id ? multi.ids : []);
+      ids.add(id);
+      setMulti(track, ids);
+    }
+    beginNoteGesture(event, track, noteEl);
+    if (gesture) Object.assign(gesture, { selectTool: true, touch, wasSelected });
+  }
+
+  function setTool(name) {
+    tool = name === 'select' ? 'select' : 'pencil';
+    el.roll.classList.toggle('tool-select', tool === 'select');
+    [['lt-pencil', 'pencil'], ['lt-select', 'select']].forEach(([id, value]) => {
+      const button = $(id);
+      if (!button) return;
+      button.classList.toggle('active', tool === value);
+      button.setAttribute('aria-pressed', String(tool === value));
+    });
+    const hint = $('tool-hint');
+    if (hint) {
+      hint.textContent = tool === 'select'
+        ? 'Touche une note ou trace une zone pour sélectionner · glisse la sélection pour la déplacer'
+        : 'Touche la grille pour poser une note · tire la poignée de droite pour l\'allonger';
+    }
+  }
+
+  /* ----- barre d'actions sous la sélection ----- */
+
+  function buildSelectionBar() {
+    const bar = create('div', 'sel-bar');
+    bar.hidden = true;
+    bar.setAttribute('role', 'toolbar');
+    bar.setAttribute('aria-label', 'Actions sur la sélection');
+    const del = GB.icons.set(create('button', 'sel-btn sel-del'), 'trash', 'Supprimer');
+    del.type = 'button';
+    del.addEventListener('click', () => deleteMulti());
+    const dup = GB.icons.set(create('button', 'sel-btn sel-dup'), 'copy', 'Copier / Coller');
+    dup.type = 'button';
+    dup.title = 'Duplique la sélection juste après sa dernière note';
+    dup.addEventListener('click', () => duplicateMulti());
+    bar.append(del, dup);
+    bar.addEventListener('pointerdown', (event) => event.stopPropagation());
+    return bar;
+  }
+
+  /** Place la barre sous la sélection (au-dessus si le bas est trop proche), toujours dans la zone visible de la grille. */
+  function updateSelectionBar() {
+    const count = multiCount();
+    const ltTrack = store.getSelectedTrack();
+    ['lt-dup', 'lt-del'].forEach((id) => {
+      const button = $(id);
+      if (button) button.disabled = count === 0 || !ltTrack || ltTrack.locked;
+    });
+    if (!selBarEl) return;
+    const track = store.getSelectedTrack();
+    const ids = track && multi.trackId === track.id ? Array.from(multi.ids).filter((id) => noteEls.has(id)) : [];
+    if (!ids.length || track.locked || (gesture && gesture.kind === 'box' && gesture.moved) || el.roll.hidden) {
+      selBarEl.hidden = true;
+      return;
+    }
+    let left = Infinity;
+    let top = Infinity;
+    let right = -Infinity;
+    let bottom = -Infinity;
+    ids.forEach((id) => {
+      const node = noteEls.get(id);
+      left = Math.min(left, node.offsetLeft);
+      top = Math.min(top, node.offsetTop);
+      right = Math.max(right, node.offsetLeft + node.offsetWidth);
+      bottom = Math.max(bottom, node.offsetTop + node.offsetHeight);
+    });
+    selBarEl.hidden = false;
+    const { labelW, headH } = rollMetrics();
+    const visLeft = el.roll.scrollLeft;
+    const visRight = visLeft + el.roll.clientWidth - labelW;
+    selBarEl.classList.remove('stack');
+    if (selBarEl.offsetWidth > visRight - visLeft - 8) selBarEl.classList.add('stack'); // écran étroit : les deux boutons s'empilent
+    const width = selBarEl.offsetWidth;
+    const height = selBarEl.offsetHeight;
+    const visTop = el.roll.scrollTop;
+    const visBottom = visTop + el.roll.clientHeight - headH;
+    let x = (left + right) / 2 - width / 2;
+    x = Math.max(visLeft + 4, Math.min(x, visRight - width - 4));
+    let y = bottom + 6;
+    if (y + height > visBottom - 2) y = top - height - 6;
+    if (y < visTop + 2) y = Math.max(visTop + 2, visBottom - height - 4);
+    selBarEl.style.left = Math.round(x) + 'px';
+    selBarEl.style.top = Math.round(y) + 'px';
+  }
+
+  function scheduleSelectionBar() {
+    if (selBarRaf) return;
+    selBarRaf = requestAnimationFrame(() => {
+      selBarRaf = 0;
+      updateSelectionBar();
+    });
+  }
+
+  /**
+   * « Copier / Coller » : crée de NOUVELLES notes, copies de la sélection, juste après sa dernière note (sur la grille choisie),
+   * avec les mêmes hauteurs, durées et écarts. Si la place est prise, tout le groupe glisse vers la droite d'un pas de grille
+   * jusqu'à tenir sans rien écraser ni raccourcir. Les copies deviennent la sélection ; les originales ne bougent pas.
+   */
+  function duplicateMulti() {
+    const track = store.getSelectedTrack();
+    if (!track || track.locked || multi.trackId !== track.id) return false;
+    const notes = track.notes.filter((note) => multi.ids.has(note.id)).sort((a, b) => a.step - b.step || a.row - b.row);
+    if (notes.length === 0) return false;
+    const resizable = GB.INSTRUMENTS[track.instrumentId].resizable;
+    const firstStep = notes[0].step;
+    const lastEnd = Math.max(...notes.map((note) => note.step + store.lengthOf(track, note)));
+    const span = lastEnd - firstStep;
+    const grid = store.grid.magnet ? store.grid.unit : 0.25;
+    const anchor = store.grid.magnet ? Math.ceil(lastEnd / grid - 1e-6) * grid : lastEnd;
+    let copies = null;
+    for (let start = anchor; start + span <= CONFIG.STEP_COUNT + 1e-6; start += grid) {
+      const delta = start - firstStep;
+      const added = [];
+      let fits = true;
+      for (const note of notes) {
+        const copy = store.addNote(track.id, note.step + delta, note.row, note.length, note.vowel);
+        if (copy) added.push(copy);
+        if (!copy || (resizable && Math.abs(copy.length - note.length) > 1e-6)) {
+          fits = false;
+          break;
+        }
+      }
+      if (fits) {
+        copies = added;
+        break;
+      }
+      added.forEach((copy) => store.removeNote(track.id, copy.id)); // pas assez de place ici : on annule et on essaie un cran plus loin
+    }
+    if (!copies) {
+      showToast('Pas de place après la sélection : déplace-la ou raccourcis-la d\'abord.');
+      return false;
+    }
+    copies.forEach((copy) => createNoteElement(track, copy, true));
+    refreshDrumWidths(track);
+    refreshAfterNoteCountChange();
+    renderVowelBar();
+    audio.preview(track.id, copies[0].row, copies[0].length, copies[0]);
+    setMulti(track, copies.map((copy) => copy.id)); // la copie est sélectionnée : on peut la glisser tout de suite
+    const { labelW } = rollMetrics();
+    const right = Math.max(...copies.map((copy) => noteEls.get(copy.id).offsetLeft + noteEls.get(copy.id).offsetWidth));
+    const left = Math.min(...copies.map((copy) => noteEls.get(copy.id).offsetLeft));
+    const visibleWidth = el.roll.clientWidth - labelW;
+    if (right > el.roll.scrollLeft + visibleWidth - 8) el.roll.scrollLeft = Math.max(0, Math.min(left - 24, right - visibleWidth + 24));
+    updateSelectionBar();
+    showReadout(copies.length + (copies.length > 1 ? ' notes copiées' : ' note copiée') + ' · glisse-les où tu veux');
+    return true;
+  }
+
+  /* ----- sélection de plusieurs notes ----- */
+
+  function multiCount() {
+    return multi.trackId === (store.getSelectedTrack() || {}).id ? Array.from(multi.ids).filter((id) => noteEls.has(id)).length : 0;
+  }
+
+  function refreshMulti(announce) {
+    noteEls.forEach((noteEl, id) => noteEl.classList.toggle('multi', multi.ids.has(id)));
+    updateSelectionBar();
+    if (announce) {
+      const count = multiCount();
+      showReadout(count > 0 ? count + (count > 1 ? ' notes sélectionnées' : ' note sélectionnée') + ' · Suppr pour effacer · Échap pour désélectionner' : READOUT_DEFAULT);
+    }
+  }
+
+  function clearMulti(announce) {
+    if (multi.ids.size === 0) return;
+    multi = { trackId: multi.trackId, ids: new Set() };
+    refreshMulti(announce);
+  }
+
+  function setMulti(track, ids) {
+    multi = { trackId: track.id, ids: new Set(ids) };
+    refreshMulti(true);
+  }
+
+  function toggleMulti(track, noteId) {
+    const ids = new Set(multi.trackId === track.id ? multi.ids : []);
+    if (ids.has(noteId)) ids.delete(noteId);
+    else ids.add(noteId);
+    setMulti(track, ids);
+  }
+
+  function deleteMulti() {
+    const track = store.getSelectedTrack();
+    if (!track || track.locked || multi.trackId !== track.id || multi.ids.size === 0) return;
+    Array.from(multi.ids).forEach((id) => {
+      if (store.removeNote(track.id, id)) removeNoteElement(id);
+    });
+    if (selectedNoteId && !store.getNote(track.id, selectedNoteId)) selectedNoteId = null;
+    multi = { trackId: track.id, ids: new Set() };
+    refreshDrumWidths(track);
+    refreshAfterNoteCountChange();
+    renderVowelBar();
+    updateSelectionBar();
+    showReadout(READOUT_DEFAULT);
+  }
+
+  /** Ctrl + C : mémorise les notes sélectionnées (hauteur, durée, voyelle) et leur écart de temps avec la première (la plus à gauche). */
+  function copyMulti() {
+    const track = store.getSelectedTrack();
+    if (!track || multi.trackId !== track.id) return false;
+    const notes = track.notes.filter((note) => multi.ids.has(note.id));
+    if (notes.length === 0) return false;
+    const firstStep = Math.min(...notes.map((note) => note.step));
+    clipboard = { notes: notes.map((note) => ({ dStep: note.step - firstStep, row: note.row, length: note.length, vowel: note.vowel })) };
+    showReadout(notes.length + (notes.length > 1 ? ' notes copiées' : ' note copiée') + ' · Ctrl + V pour coller à l\'endroit de la souris');
+    return true;
+  }
+
+  /** Ctrl + V : colle les mêmes notes (même hauteur, même durée) ; seule la position horizontale suit la souris : la première note tombe sous la souris. */
+  function pasteClipboard() {
+    const track = store.getSelectedTrack();
+    if (!clipboard || !track || track.locked || el.roll.hidden) return false;
+    const geometry = gridGeometry();
+    const inside = mouseOnRoll && gridEl && mouseOnRoll.clientX >= geometry.rect.left && mouseOnRoll.clientX <= geometry.rect.right;
+    if (!inside) {
+      showToast('Place la souris sur la grille, puis Ctrl + V.');
+      return false;
+    }
+    const anchorStep = placementAt(geometry, mouseOnRoll.clientX, bypassOf(mouseOnRoll));
+    const added = [];
+    let skipped = 0;
+    clipboard.notes.forEach((item) => {
+      const note = rowAllowed(track, item.row) ? store.addNote(track.id, anchorStep + item.dStep, item.row, item.length, item.vowel) : null;
+      if (note) {
+        createNoteElement(track, note, true);
+        added.push(note);
+      } else {
+        skipped += 1;
+      }
+    });
+    if (added.length === 0) {
+      showToast('Rien n\'a pu être collé ici (place occupée ou hors de la grille).');
+      return false;
+    }
+    refreshDrumWidths(track);
+    refreshAfterNoteCountChange();
+    renderVowelBar();
+    audio.preview(track.id, added[0].row, added[0].length, added[0]);
+    setMulti(track, added.map((note) => note.id)); // les notes collées deviennent la sélection
+    showReadout(added.length + (added.length > 1 ? ' notes collées' : ' note collée') + (skipped ? ' · ' + skipped + ' sans place' : ''));
+    return true;
+  }
+
+  /** Dessine / met à jour la boîte de sélection et choisit les notes qu'elle touche. */
+  function updateBox(event) {
+    const geometry = gridGeometry();
+    const x1 = Math.max(geometry.rect.left, Math.min(gesture.startX, event.clientX));
+    const x2 = Math.min(geometry.rect.right, Math.max(gesture.startX, event.clientX));
+    const y1 = Math.max(geometry.rect.top, Math.min(gesture.startY, event.clientY));
+    const y2 = Math.min(geometry.rect.bottom, Math.max(gesture.startY, event.clientY));
+    if (!gesture.boxEl) {
+      gesture.boxEl = create('div', 'selection-box');
+      notesLayerEl.append(gesture.boxEl);
+    }
+    Object.assign(gesture.boxEl.style, { left: x1 - geometry.rect.left + 'px', top: y1 - geometry.rect.top + 'px', width: Math.max(0, x2 - x1) + 'px', height: Math.max(0, y2 - y1) + 'px' });
+    const ids = new Set(gesture.base);
+    noteEls.forEach((noteEl, id) => {
+      const r = noteEl.getBoundingClientRect();
+      if (r.left < x2 && r.right > x1 && r.top < y2 && r.bottom > y1) ids.add(id);
+    });
+    const track = store.getTrack(gesture.trackId);
+    if (track) setMulti(track, ids);
   }
 
   /** Pose une note là où est le pointeur (grille ou libre). En mode libre, un clic = une note (pas de traînée). */
@@ -1215,14 +1762,36 @@
       handleOffset: (noteRight - event.clientX) / geometry.colWidth, // écart (en colonnes) entre le doigt et le bord droit
       lastRow: note.row,
       originEl: null,
+      group: null, // si la note attrapée fait partie d'une sélection : toutes les notes choisies bougent ensemble
     };
+    if (!isResize && multi.trackId === track.id && multi.ids.has(note.id)) {
+      const members = track.notes.filter((candidate) => multi.ids.has(candidate.id) && noteEls.has(candidate.id));
+      if (members.length > 1) {
+        gesture.group = members.map((member) => ({ id: member.id, step: member.step, row: member.row }));
+        gesture.originEls = [];
+      }
+    }
   }
 
   function startVisibleDrag(track, note) {
     gesture.moved = true;
     el.roll.classList.add('is-dragging');
     gesture.noteEl.classList.add('dragging');
-    if (gesture.kind === 'move') {
+    if (gesture.kind === 'move' && gesture.group) {
+      // Sélection : un repère en pointillés par note, et toutes les notes choisies passent « en vol »
+      gesture.group.forEach((member) => {
+        const memberEl = noteEls.get(member.id);
+        const memberNote = store.getNote(track.id, member.id);
+        if (!memberEl || !memberNote) return;
+        memberEl.classList.add('dragging');
+        const marker = create('div', 'note-origin');
+        marker.style.setProperty('--x', member.step);
+        marker.style.setProperty('--w', store.lengthOf(track, memberNote));
+        marker.style.setProperty('--y', topIndexOf(member.row));
+        notesLayerEl.insertBefore(marker, notesLayerEl.firstChild);
+        gesture.originEls.push(marker);
+      });
+    } else if (gesture.kind === 'move') {
       // Repère en pointillés à l'emplacement d'origine
       const origin = create('div', 'note-origin');
       origin.style.setProperty('--x', gesture.origin.step);
@@ -1233,16 +1802,70 @@
     }
   }
 
+  /**
+   * Lignes de destination d'une sélection glissée. `targetRow` = ligne visée pour la note attrapée.
+   * Les notes dans le mode se déplacent d'autant de lignes DU MODE que la note attrapée ; celles déjà hors mode
+   * gardent l'écart brut. L'écart est réduit si une note sortirait des lignes. Renvoie [{ id, row }].
+   */
+  function groupTargets(track, grabbed, targetRow) {
+    const count = GB.getRowCount(track.instrumentId);
+    const allowed = [];
+    for (let row = 0; row < count; row += 1) if (rowAllowed(track, row)) allowed.push(row);
+    const members = gesture.group.map((member) => store.getNote(track.id, member.id)).filter(Boolean);
+    const grabbedIndex = allowed.indexOf(grabbed.row);
+    const targetIndex = allowed.indexOf(targetRow);
+    const modeSteps = grabbedIndex >= 0 && targetIndex >= 0;
+    let shift = modeSteps ? targetIndex - grabbedIndex : targetRow - grabbed.row;
+    const rowsFor = (amount) => {
+      const grabbedTo = modeSteps ? allowed[grabbedIndex + amount] : grabbed.row + amount;
+      return members.map((member) => {
+        const index = allowed.indexOf(member.row);
+        let row;
+        if (modeSteps && index >= 0) row = allowed[index + amount];
+        else row = grabbedTo === undefined ? undefined : member.row + (grabbedTo - grabbed.row);
+        return { id: member.id, row };
+      });
+    };
+    let rows = rowsFor(shift);
+    while (shift !== 0 && rows.some((entry) => entry.row === undefined || entry.row < 0 || entry.row >= count)) {
+      shift += shift > 0 ? -1 : 1;
+      rows = rowsFor(shift);
+    }
+    return rows.every((entry) => entry.row !== undefined) ? rows : null;
+  }
+
   function moveNoteTo(event, track, note) {
     const geometry = gridGeometry();
     const targetStep = nearestStep(columnsAt(geometry, event.clientX) - gesture.grabOffset, bypassOf(event));
     let targetRow = visualRowAt(geometry, event.clientY);
     // Une note « hors mode » reste sur sa ligne tant qu'on ne la déplace pas vers une autre ; sinon on vise une ligne proposée.
     if (targetRow !== gesture.origin.row && !rowAllowed(track, targetRow)) targetRow = nearestAllowedRow(track, targetRow);
+    if (gesture.group) {
+      // Sélection : la note attrapée mène. Les notes du mode descendent du même nombre de lignes DU MODE
+      // (les lignes « hors mode » ne comptent pas) ; les notes déjà hors mode gardent le même écart brut.
+      const moves = groupTargets(track, note, targetRow);
+      if (moves && store.moveNotes(track.id, moves, targetStep - note.step)) {
+        gesture.group.forEach((member) => {
+          const memberNote = store.getNote(track.id, member.id);
+          const memberEl = noteEls.get(member.id);
+          if (memberNote && memberEl) positionNoteElement(memberEl, track, memberNote);
+        });
+        refreshDrumWidths(track);
+        highlightTarget(track, note);
+        updateSelectionBar();
+        if (note.row !== gesture.lastRow) {
+          gesture.lastRow = note.row;
+          audio.preview(track.id, note.row, note.length);
+        }
+      }
+      showTip(gesture.noteEl, describePosition(track, note));
+      return;
+    }
     if (store.moveNote(track.id, note.id, targetStep, targetRow)) {
       positionNoteElement(gesture.noteEl, track, note);
       refreshDrumWidths(track);
       highlightTarget(track, note);
+      updateSelectionBar();
       if (note.row !== gesture.lastRow) {
         gesture.lastRow = note.row;
         audio.preview(track.id, note.row, note.length); // on entend la hauteur choisie
@@ -1260,6 +1883,7 @@
     if (store.resizeNote(track.id, note.id, length)) {
       positionNoteElement(gesture.noteEl, track, note);
       highlightTarget(track, note);
+      updateSelectionBar();
     }
     showTip(gesture.noteEl, GB.formatLength(note.length));
   }
@@ -1270,7 +1894,7 @@
     const tick = () => {
       autoScrollRaf = 0;
       if (!gesture || !lastPointer || el.roll.hidden) return;
-      if (gesture.kind !== 'paint' && !gesture.moved) {
+      if (!gesture.moved) {
         autoScrollRaf = requestAnimationFrame(tick);
         return;
       }
@@ -1302,13 +1926,20 @@
       return;
     }
     if (!gesture || event.pointerId !== gesture.pointerId) return;
-    lastPointer = { pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY, altKey: event.altKey };
-    startAutoScroll();
-    if (gesture.kind === 'paint') {
-      const track = store.getSelectedTrack();
-      if (track && !gesture.free && !bypassOf(event)) paintAt(track, event); // glisser = plusieurs notes, seulement avec l'aimant
+    if (gesture.kind === 'tap') {
+      // Le doigt a bougé : ce n'est plus un tap, c'est un défilement.
+      if (Math.hypot(event.clientX - gesture.startX, event.clientY - gesture.startY) > 10) gesture = null;
       return;
     }
+    if (gesture.kind === 'placed') return; // la note est déjà posée : rester appuyé ne pose rien de plus
+    if (gesture.kind === 'box') {
+      if (!gesture.moved && Math.hypot(event.clientX - gesture.startX, event.clientY - gesture.startY) < 4) return;
+      gesture.moved = true;
+      updateBox(event);
+      return;
+    }
+    lastPointer = { pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY, altKey: event.altKey };
+    startAutoScroll();
     const track = store.getTrack(gesture.trackId);
     const note = store.getNote(gesture.trackId, gesture.noteId);
     if (!track || !note) return;
@@ -1329,10 +1960,68 @@
     }
     if (!gesture || event.pointerId !== gesture.pointerId) return;
     const finished = gesture;
-    if (finished.kind !== 'paint') {
+    if (finished.kind === 'tap') {
+      const track = store.getTrack(finished.trackId);
+      gesture = null;
+      // Un doigt posé sans bouger = UNE note au relâchement, quelle que soit la durée de l'appui.
+      if (!cancelled && track) {
+        gesture = { kind: 'placed', pointerId: finished.pointerId, tried: new Set() };
+        paintAt(track, finished.down);
+        gesture = null;
+      }
+      return;
+    }
+    if (finished.kind === 'placed') {
+      gesture = null;
+      return;
+    }
+    if (finished.kind === 'box') {
+      gesture = null;
+      if (finished.boxEl) finished.boxEl.remove();
+      if (finished.moved || cancelled) {
+        updateSelectionBar();
+        return; // la sélection reste telle que dessinée
+      }
+      const track = store.getTrack(finished.trackId);
+      if (!track || finished.shift) {
+        updateSelectionBar();
+        return; // Maj + simple clic sur le vide : on ne pose rien
+      }
+      clearMulti(true);
+      if (finished.selectTool) return; // outil Sélection : un tap dans le vide défait la sélection, sans poser de note
+      gesture = { kind: 'placed', pointerId: finished.pointerId, tried: new Set() };
+      paintAt(track, finished.down);
+      gesture = null;
+      return;
+    }
+    {
       const track = store.getTrack(finished.trackId);
       const note = store.getNote(finished.trackId, finished.noteId);
-      if (cancelled && finished.moved && track && note) {
+      if (cancelled && finished.moved && track && note && finished.group) {
+        // Geste interrompu : toutes les notes de la sélection retrouvent leur place d'origine.
+        finished.group.forEach((member) => {
+          const memberNote = store.getNote(track.id, member.id);
+          const memberEl = noteEls.get(member.id);
+          if (!memberNote) return;
+          memberNote.step = member.step;
+          memberNote.row = member.row;
+          if (memberEl) positionNoteElement(memberEl, track, memberNote);
+        });
+        refreshDrumWidths(track);
+      } else if (!finished.moved && finished.kind === 'move' && !cancelled && finished.group) {
+        // Simple clic sur une note d'une sélection : on ne l'efface pas (on glisse la sélection ; un clic dans le vide la défait).
+        // Outil Sélection au doigt : un tap sur une note déjà choisie la retire de la sélection.
+        if (finished.selectTool && finished.touch && finished.wasSelected) {
+          multi.ids.delete(finished.noteId);
+          refreshMulti(true);
+        }
+      } else if (!finished.moved && finished.kind === 'move' && !cancelled && finished.selectTool) {
+        // Outil Sélection : toucher une note la sélectionne, ne l'efface jamais.
+        if (finished.touch && finished.wasSelected) {
+          multi.ids.delete(finished.noteId);
+          refreshMulti(true);
+        }
+      } else if (cancelled && finished.moved && track && note) {
         // Geste interrompu : la note retrouve sa place d'origine.
         note.step = finished.origin.step;
         note.row = finished.origin.row;
@@ -1347,6 +2036,7 @@
         } else {
           // Clic sans glisser : on enlève la note.
           if (selectedNoteId === note.id) selectedNoteId = null;
+          multi.ids.delete(note.id);
           store.removeNote(track.id, note.id);
           removeNoteElement(note.id);
           refreshDrumWidths(track);
@@ -1381,6 +2071,7 @@
 
   /** Prépare une composition libre : quitte une éventuelle partie, remet la boucle à 4 mesures. */
   function startComposition(loader) {
+    resetHistory();
     audio.stop();
     if (GB.voiceUI) GB.voiceUI.reset();
     if (GB.game.state.active) GB.game.quit();
@@ -1412,7 +2103,7 @@
     studio.snap = null;
     studio.active = true;
     startComposition(() => store.reset());
-    showToast('Pose ta première note sur la grille 🎶');
+    showToast('Pose ta première note sur la grille');
   }
 
   /** Carte « Composition solo » : reprend la composition en cours si elle existe, sinon page blanche. */
@@ -1450,7 +2141,7 @@
     studio.snap = null;
     studio.active = true;
     startComposition(() => store.reset());
-    showToast('Nouvelle page blanche ✨');
+    showToast('Nouvelle page blanche');
   }
 
   function askRestart() {
@@ -1464,7 +2155,7 @@
   /** Pendant la révélation, la lecture appartient à l'hôte : aucune commande locale (pause, arrêt, barre de lecture). */
   function revealLocked() {
     if (!GB.game || !GB.game.isRevealLocked()) return false;
-    showToast('🔒 La révélation est contrôlée par l\'hôte : pas de pause individuelle.');
+    showToast('La révélation est contrôlée par l\'hôte : pas de pause individuelle.');
     return true;
   }
 
@@ -1516,7 +2207,10 @@
   function changeInstrument(instrumentId) {
     audio.unlock();
     const track = store.getSelectedTrack();
-    if (!track || !store.setInstrument(track.id, instrumentId)) return;
+    if (!track || track.locked || !GB.INSTRUMENTS[instrumentId]) return;
+    if (isGameMode()) {
+      if (!GB.game.changeInstrument(instrumentId)) return renderQuickInstrument();
+    } else if (!store.setInstrument(track.id, instrumentId)) return renderQuickInstrument();
     audio.syncTracks();
     renderTracks();
     renderInstrumentPicker();
@@ -1574,14 +2268,65 @@
       if (actionEl.dataset.action === 'delete') removeTrack(trackId);
     });
 
+    if (el.quickInstrument) {
+      el.quickInstrument.addEventListener('change', () => {
+        const value = el.quickInstrument.value;
+        if (value === '__synth') {
+          renderQuickInstrument();
+          const current = store.getSelectedTrack();
+          if (GB.synthUI) GB.synthUI.open(current && GB.INSTRUMENTS[current.instrumentId] && GB.INSTRUMENTS[current.instrumentId].custom ? current.instrumentId : null);
+          return;
+        }
+        if (value === '__sounds') {
+          renderQuickInstrument();
+          if (GB.soundsUI) GB.soundsUI.open();
+          return;
+        }
+        changeInstrument(value);
+      });
+    }
     el.instrumentPicker.addEventListener('click', (event) => {
       const button = event.target.closest('[data-instrument]');
       if (button) changeInstrument(button.dataset.instrument);
     });
 
     el.roll.addEventListener('pointerdown', pointerDownOnRoll);
+    $('lt-undo').addEventListener('click', () => stepHistory(-1));
+    $('lt-redo').addEventListener('click', () => stepHistory(1));
+    $('lt-pencil').addEventListener('click', () => setTool('pencil'));
+    $('lt-select').addEventListener('click', () => setTool('select'));
+    $('lt-dup').addEventListener('click', () => duplicateMulti());
+    $('lt-del').addEventListener('click', () => deleteMulti());
+    const validate = $('btn-validate');
+    const ready = $('lt-ready');
+    ready.addEventListener('click', () => validate.click());
+    const mirrorReady = () => {
+      ready.hidden = validate.hidden;
+      ready.disabled = validate.disabled;
+      ready.title = ready.ariaLabel = validate.textContent.trim() || 'Prêt';
+    };
+    new MutationObserver(mirrorReady).observe(validate, { attributes: true, childList: true, characterData: true, subtree: true });
+    mirrorReady();
+    // Annuler / Rétablir : on regarde si les notes ont changé après chaque geste ou clic.
+    const afterAction = () => setTimeout(recordHistory, 0);
+    window.addEventListener('pointerup', afterAction);
+    window.addEventListener('click', afterAction);
+    window.addEventListener('keyup', afterAction);
+    window.addEventListener('keydown', (event) => {
+      if (!(event.ctrlKey || event.metaKey) || event.altKey || $('screen-editor').hidden || document.querySelector('dialog[open]') || event.target.closest('input, textarea, select')) return;
+      const key = event.key.toLowerCase();
+      if (key !== 'z' && key !== 'y') return;
+      event.preventDefault();
+      stepHistory(key === 'y' || event.shiftKey ? 1 : -1);
+    });
+    setTool('pencil');
+    el.roll.addEventListener('scroll', scheduleSelectionBar, { passive: true });
+    const dockPlay = $('lt-play');
+    if (dockPlay) dockPlay.addEventListener('click', togglePlayback); // même lecture / pause que le bouton principal et la barre espace
+    if (el.gridReadout) el.gridReadout.textContent = READOUT_DEFAULT;
     el.roll.addEventListener('pointermove', onRollHover);
     el.roll.addEventListener('pointerleave', () => {
+      mouseOnRoll = null;
       if (hoverEl) hoverEl.hidden = true;
       if (!scrub) showReadout(READOUT_DEFAULT);
     });
@@ -1610,6 +2355,11 @@
       view.follow = !view.follow;
       applyViewControls();
     });
+    // Téléphone en paysage : le panneau des pistes est replié au départ pour donner toute la place à la grille (bouton ☰ pour l'ouvrir).
+    if (window.matchMedia('(max-width: 1100px), (max-height: 520px)').matches) {
+      el.workspace.classList.add('sidebar-collapsed');
+      el.btnSidebar.setAttribute('aria-pressed', 'false');
+    }
     el.btnSidebar.addEventListener('click', () => {
       const collapsed = el.workspace.classList.toggle('sidebar-collapsed');
       el.btnSidebar.setAttribute('aria-pressed', String(!collapsed));
@@ -1637,8 +2387,31 @@
       if (button) chooseVowel(button.dataset.vowel);
     });
     el.btnNoteDelete.addEventListener('click', deleteSelectedNote);
+    el.roll.addEventListener('pointermove', (event) => {
+      mouseOnRoll = { clientX: event.clientX, clientY: event.clientY, altKey: event.altKey };
+    });
+    // Ctrl + C / Ctrl + V (Cmd sur Mac) : copier les notes sélectionnées, les coller sous la souris.
+    window.addEventListener('keydown', (event) => {
+      if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return;
+      const key = event.key.toLowerCase();
+      if ((key !== 'c' && key !== 'v') || $('screen-editor').hidden || document.querySelector('dialog[open]') || event.target.closest('input, textarea, select')) return;
+      const handled = key === 'c' ? copyMulti() : pasteClipboard();
+      if (handled) event.preventDefault();
+    });
     window.addEventListener('keydown', (event) => {
       if ($('screen-editor').hidden || document.querySelector('dialog[open]') || event.target.closest('input, textarea, select') || event.ctrlKey || event.metaKey || event.altKey) return;
+      if (multiCount() > 0) {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          clearMulti(true);
+          return;
+        }
+        if (event.key === 'Delete' || event.key === 'Backspace') {
+          event.preventDefault();
+          deleteMulti();
+          return;
+        }
+      }
       const track = store.getSelectedTrack();
       if (!isVowelTrack(track) || !selectedNoteId) return;
       if (event.key === 'Delete' || event.key === 'Backspace') {
@@ -1659,7 +2432,7 @@
     const TYPING = 'textarea, select, [contenteditable=""], [contenteditable="true"], input:not([type="range"]):not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]):not([type="file"])';
     let spaceDown = false;
     let lastToggleAt = 0;
-    const spaceIsOurs = (event) => event.code === 'Space' && !$('screen-editor').hidden && !document.querySelector('dialog[open]') && !(event.target.closest && event.target.closest(TYPING));
+    const spaceIsOurs = (event) => event.code === 'Space' && !$('screen-editor').hidden && !document.querySelector('dialog[open]') && !document.body.classList.contains('stn-active') && !(event.target.closest && event.target.closest(TYPING));
     window.addEventListener('keydown', (event) => {
       if (!spaceIsOurs(event)) return;
       event.preventDefault();
@@ -1700,7 +2473,6 @@
       showFatalError('Tone.js est introuvable : vérifie que le fichier vendor/Tone.js est bien présent.');
       return;
     }
-    GB.instruments.load(); // instruments personnalisés sauvegardés dans ce navigateur
     store.reset();
     audio.init({ onStatusChange: renderTransport });
     setMode('free');
@@ -1717,15 +2489,28 @@
   /** Fonctions partagées avec game-ui.js. */
   GB.ui = {
     el,
+    /** Sélection de plusieurs notes (pour un futur copier-coller) : { trackId, noteIds }. */
+    getSelection: () => ({ trackId: multi.trackId, noteIds: Array.from(multi.ids).filter((id) => noteEls.has(id)) }),
+    clearSelection: () => clearMulti(true),
     renderVowelBar,
     showToast,
     showScreen,
     stashStudio,
+    startComposition,
     setMode,
     isGameMode,
     renderAll,
     renderTracks,
     renderInstrumentPicker,
+    renderQuickInstrument,
+    changeInstrument,
+    getDifficulty: () => view.mode,
+    setDifficulty(mode) {
+      setView({ mode }, true);
+    },
+    onDifficulty(listener) {
+      difficultyListeners.push(listener);
+    },
     renderStageHeader,
     renderTempo,
     renderRoll,
@@ -1736,6 +2521,28 @@
     resetZoom,
     fitToNotes,
     octaveStep,
+    visibleRangeText,
+    cancelGesture,
+    setTool,
+    getTool: () => tool,
+    /** Notes ajoutées EN DIRECT (Speech to Note) : la note existe déjà dans le store, on ne fait que l'afficher / la mettre à jour. */
+    liveNote: {
+      add(track, note) {
+        createNoteElement(track, note, true);
+        updateEmptyHint();
+      },
+      update(track, note) {
+        const noteEl = noteEls.get(note.id);
+        if (noteEl) positionNoteElement(noteEl, track, note);
+      },
+      remove: removeNoteElement,
+      finish() {
+        refreshAfterNoteCountChange();
+        recordHistory();
+      },
+    },
+    stepHistory,
+    isGameMode,
     applyLayout,
     changeBpm,
     togglePlayback,

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="180" height="180" viewBox="0 0 180 180">
+  <title>vox.svg</title>
+  <g id="Layer_1" data-name="Layer 1">
+    <path d="M90 42 L90 24" fill="none" stroke="#20123f" stroke-width="8"/>
+    <path d="M98 18 C98 22.418 94.418 26 90 26 C85.582 26 82 22.418 82 18 C82 13.582 85.582 10 90 10 C94.418 10 98 13.582 98 18 Z" fill="#ff4f9a" stroke="#20123f" stroke-width="6"/>
+    <path d="M159.898 90 L142 82 L142 112 L159.898 107.066 Z" fill="#ffd23f" stroke="#20123f" stroke-width="8" stroke-linejoin="round"/>
+    <path d="M20.069 90 L38 82 L38 112 L20.069 107.066 Z" fill="#ffd23f" stroke="#20123f" stroke-width="8" stroke-linejoin="round"/>
+    <path d="M48 42 L132 42 C137.523 42 142 46.477 142 52 L142 132 C142 137.523 137.523 142 132 142 L48 142 C42.477 142 38 137.523 38 132 L38 52 C38 46.477 42.477 42 48 42 Z" fill="#35b8ff" stroke="#20123f" stroke-width="12" stroke-linejoin="round"/>
+    <path d="M47.755 97 L132.245 97 L99.388 130.028 L80.612 130.028 Z" fill="#ffffff" stroke="#20123f" stroke-width="8" stroke-linejoin="round"/>
+    <path d="M68.877 97 L68.877 118.036 M90 97 L90 130.028 M111.123 97 L110.838 118.036" fill="#000000" stroke="#20123f" stroke-width="8"/>
+    <path d="M57.325 33 L73.631 33 C75.467 33 76.956 34.489 76.956 36.325 L76.956 82.881 C76.956 84.717 75.467 86.206 73.631 86.206 L57.325 86.206 C55.489 86.206 54 84.717 54 82.881 L54 36.325 C54 34.489 55.489 33 57.325 33 Z" fill="#20123f" stroke="#20123f" stroke-width="3" stroke-miterlimit="10"/>
+    <path d="M106.369 33 L122.675 33 C124.511 33 126 34.489 126 36.325 L126 82.881 C126 84.717 124.511 86.206 122.675 86.206 L106.369 86.206 C104.533 86.206 103.044 84.717 103.044 82.881 L103.044 36.325 C103.044 34.489 104.533 33 106.369 33 Z" fill="#20123f" stroke="#20123f" stroke-width="3" stroke-miterlimit="10"/>
+  </g>
+</svg>

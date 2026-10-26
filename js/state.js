@@ -125,9 +125,14 @@
     return data;
   };
 
+  /** Dernière durée donnée à une note en l'allongeant ou la raccourcissant, par piste : les prochaines notes posées la reprennent. */
+  const draftLengths = new Map();
+
   function makeNote(track, step, row, length, vowel) {
     noteCounter += 1;
-    const wanted = length === undefined ? GB.INSTRUMENTS[track.instrumentId].defaultLength : length;
+    // Sans durée demandée : la dernière durée choisie en allongeant une note de cette piste, sinon la durée de l'instrument.
+    const remembered = draftLengths.get(track.id);
+    const wanted = length !== undefined ? length : remembered !== undefined && GB.INSTRUMENTS[track.instrumentId].resizable ? remembered : GB.INSTRUMENTS[track.instrumentId].defaultLength;
     const note = { id: 'note-' + noteCounter, step: norm(step), row, length: Math.max(FREE_MIN_LENGTH, snapLength(wanted)) };
     if (isVowelTrack(track)) note.vowel = VOWEL_IDS.includes(vowel) ? vowel : defaultVowel(track);
     return note;
@@ -366,7 +371,7 @@
     /** Modifie les réglages de l'instrument de la piste (valeurs ramenées dans les limites autorisées). */
     setSettings(trackId, patch) {
       const track = findEditableTrack(trackId);
-      if (!track || !GB.instruments.settingsEngine(track.instrumentId)) return false;
+      if (!track || !GB.instruments.settingsEngine(track.instrumentId) || GB.INSTRUMENTS[track.instrumentId].custom) return false; // un instrument personnalisé ne se règle que dans son éditeur (son identifiant dépend de ses réglages)
       track.settings = GB.instruments.normalizeSettings(track.instrumentId, Object.assign({}, track.settings, patch));
       return true;
     },
@@ -434,7 +439,7 @@
      * Pose une note de durée par défaut (raccourcie si une note suit sur la même ligne).
      * Renvoie la note, ou null si la cellule est déjà occupée / hors limites / piste verrouillée.
      */
-    addNote(trackId, step, row) {
+    addNote(trackId, step, row, length, vowel) {
       const track = findEditableTrack(trackId);
       if (!track) return null;
       if (!Number.isFinite(step) || step < 0 || step >= CONFIG.STEP_COUNT) return null;
@@ -442,7 +447,7 @@
       step = norm(step);
       const room = roomFrom(track, step, row);
       if (room < FREE_MIN_LENGTH - EPSILON) return null;
-      const note = makeNote(track, step, row);
+      const note = makeNote(track, step, row, length, vowel);
       note.length = Math.min(note.length, Math.floor(room * PRECISION) / PRECISION);
       track.notes.push(note);
       return note;
@@ -487,6 +492,46 @@
     },
 
     /**
+     * Déplace plusieurs notes d'un coup (sélection). `moves` = [{ id, row }] : la ligne de destination de chaque note
+     * (calculée par l'interface, qui connaît le mode de jeu) ; `dStep` = écart de temps commun, ramené pour que tout reste
+     * dans la grille. Si une destination sort des lignes ou tombe sur une note qui ne fait pas partie du groupe, rien
+     * ne bouge. Renvoie true si le groupe a bougé.
+     */
+    moveNotes(trackId, moves, dStep) {
+      const track = findEditableTrack(trackId);
+      if (!track || !Array.isArray(moves)) return false;
+      const targets = new Map(moves.map((move) => [move.id, move.row]));
+      const group = track.notes.filter((note) => targets.has(note.id));
+      if (group.length === 0) return false;
+      const rowCount = GB.getRowCount(track.instrumentId);
+      if (group.some((note) => !Number.isInteger(targets.get(note.id)) || targets.get(note.id) < 0 || targets.get(note.id) >= rowCount)) return false;
+      let minStep = Infinity;
+      let maxEnd = -Infinity;
+      group.forEach((note) => {
+        minStep = Math.min(minStep, note.step);
+        maxEnd = Math.max(maxEnd, note.step + occupiedOf(track, note));
+      });
+      const stepShift = norm(clamp(dStep, -minStep, CONFIG.STEP_COUNT - maxEnd));
+      if (Math.abs(stepShift) < EPSILON && group.every((note) => targets.get(note.id) === note.row)) return false;
+      const others = track.notes.filter((note) => !targets.has(note.id));
+      const blocked = group.some((note) => {
+        const start = norm(note.step + stepShift);
+        const row = targets.get(note.id);
+        const length = occupiedOf(track, note);
+        return others.some(
+          (other) =>
+            other.row === row && start < other.step + occupiedOf(track, other) - EPSILON && other.step < start + length - EPSILON
+        );
+      });
+      if (blocked) return false;
+      group.forEach((note) => {
+        note.step = norm(note.step + stepShift);
+        note.row = targets.get(note.id);
+      });
+      return true;
+    },
+
+    /**
      * Change la durée d'une note : alignée sur la grille (pas de 0,25), jamais plus courte que
      * le minimum, jamais au-delà de la boucle ni sur la note suivante. Renvoie true si elle a changé.
      */
@@ -498,7 +543,13 @@
       const next = clamp(snapLength(length), FREE_MIN_LENGTH, Math.max(FREE_MIN_LENGTH, maxLength));
       if (Math.abs(next - note.length) < EPSILON) return false;
       note.length = next;
+      draftLengths.set(track.id, next);
       return true;
+    },
+
+    /** Durée que prendront les prochaines notes posées sur cette piste (undefined = durée par défaut de l'instrument). */
+    getDraftLength(trackId) {
+      return draftLengths.get(trackId);
     },
 
     /** Efface les notes de la piste (et l'enregistrement, pour une piste de voix micro). */

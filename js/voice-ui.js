@@ -39,6 +39,7 @@
     trackId: null,
     loopMode: false,
     loopTrim: 0,
+    deviceKey: 'default',
     startedAt: 0,
     autoStopTimer: null,
     tickTimer: null,
@@ -82,6 +83,84 @@
     return (clip.duration * store.state.bpm) / 60; // la voix dure un nombre fixe de secondes, donc un nombre variable de temps
   }
 
+  /* ---- Affichage en direct : le curseur avance et le bloc rouge de la voix se dessine pendant qu'on chante ---- */
+  const live = { canvas: null, cursor: null, levels: [], raf: 0, previewFrom: 0, previewStart: 0, previewUntil: 0 };
+
+  function ensureOverlay() {
+    live.canvas = create('canvas', 'voice-live');
+    live.cursor = create('div', 'voice-cursor');
+    live.cursor.hidden = true;
+    el.timeline.append(live.canvas, live.cursor);
+  }
+
+  /** Position du curseur en temps (colonnes) ; null = rien à suivre. */
+  function livePosition() {
+    const now = performance.now();
+    if (now < live.previewUntil) return live.previewFrom + ((now - live.previewStart) / 1000) * (store.state.bpm / 60);
+    if (audio.getStatus() === 'playing') return audio.getPlayheadPosition();
+    if (rec.active && !rec.counting) return ((now - (rec.zeroAt || rec.startedAt)) / 1000) * (store.state.bpm / 60);
+    return null;
+  }
+
+  function drawLive(position) {
+    const canvas = live.canvas;
+    if (!canvas || !canvas.isConnected) return;
+    const width = el.timeline.clientWidth;
+    const height = el.timeline.clientHeight;
+    if (canvas.width !== width * 2 || canvas.height !== height * 2) {
+      canvas.width = width * 2;
+      canvas.height = height * 2;
+    }
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (!rec.active || !live.levels.length) return;
+    const perCol = canvas.width / CONFIG.STEP_COUNT;
+    const x0 = live.levels[0].x * perCol;
+    const x1 = Math.min(canvas.width, Math.max(x0 + 4, position * perCol));
+    // le « cube rouge » : il s'allonge avec le curseur ; les barres blanches montrent le volume de la voix à chaque instant
+    ctx.fillStyle = '#e0314b';
+    ctx.strokeStyle = '#20123f';
+    ctx.lineWidth = 6;
+    const top = 16;
+    const blockH = canvas.height - 32;
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(x0, top, x1 - x0, blockH, 18);
+    else ctx.rect(x0, top, x1 - x0, blockH);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.95)';
+    const mid = top + blockH / 2;
+    live.levels.forEach((sample) => {
+      const x = sample.x * perCol;
+      const h = Math.max(4, sample.v * (blockH - 16));
+      ctx.fillRect(x, mid - h / 2, Math.max(3, perCol / 8), h);
+    });
+  }
+
+  function liveLoop() {
+    live.raf = 0;
+    if (el.panel.hidden) return;
+    const position = livePosition();
+    if (live.cursor && live.cursor.isConnected) {
+      live.cursor.hidden = position === null;
+      if (position !== null) live.cursor.style.setProperty('--px', Math.max(0, Math.min(CONFIG.STEP_COUNT, position)));
+    }
+    if (rec.active && !rec.counting && position !== null) {
+      const x = Math.max(0, Math.min(CONFIG.STEP_COUNT, position));
+      const bucket = Math.floor(x * 4); // une barre toutes les 1/4 de colonne : on garde le volume le plus fort du créneau
+      let last = live.levels[live.levels.length - 1];
+      if (last && x < last.x - 1) { live.levels = []; last = null; } // la boucle a redémarré (la position de départ était périmée) : on repart de zéro
+      if (last && last.bucket === bucket) last.v = Math.max(last.v, voice.getLevel());
+      else live.levels.push({ x, bucket, v: voice.getLevel() });
+      drawLive(Math.min(CONFIG.STEP_COUNT, position));
+    }
+    if (position !== null || rec.active) live.raf = requestAnimationFrame(liveLoop);
+  }
+
+  function startLive() {
+    if (!live.raf) live.raf = requestAnimationFrame(liveLoop);
+  }
+
   function renderTimeline(track) {
     el.timeline.innerHTML = '';
     el.ruler.innerHTML = '';
@@ -90,7 +169,9 @@
     el.timeline.style.setProperty('--track-color', track.color);
     for (let bar = 0; bar < CONFIG.STEP_COUNT / CONFIG.STEPS_PER_BAR; bar += 1) el.ruler.append(create('span', null, 'Mesure ' + (bar + 1)));
     if (!track.clip) {
-      el.timeline.append(create('p', 'voice-empty', 'Ton enregistrement apparaîtra ici : tu pourras le glisser où tu veux dans la boucle.'));
+      el.timeline.append(create('p', 'voice-empty', 'Ton enregistrement apparaîtra ici : tu le verras se dessiner en direct pendant que le curseur avance.'));
+      ensureOverlay();
+      startLive();
       return;
     }
     const clip = track.clip;
@@ -109,11 +190,19 @@
     el.timeline.append(block);
     voice.drawWave(canvas, clip.peaks, 'rgba(255,255,255,0.95)');
     if (clipColumns(clip) > CONFIG.STEP_COUNT - clip.start + 0.01) block.classList.add('cut');
+    ensureOverlay();
+    startLive();
+  }
+
+  function refreshCalibBanner() {
+    const banner = $('voice-calib');
+    if (banner) banner.hidden = !GB.micprefs || GB.micprefs.hasAnyCalibrated();
   }
 
   function render() {
     const track = currentTrack();
     el.panel.hidden = !track;
+    refreshCalibBanner();
     if (!track) {
       if (rec.active) cancelRecording();
       return;
@@ -125,11 +214,14 @@
     const recording = rec.active;
     renderTimeline(track);
 
-    el.btnRec.hidden = recording;
-    el.btnRecLoop.hidden = recording;
+    const phoneRec = phoneRecordMode();
+    el.btnRec.hidden = recording || !phoneRec; // hors Phone : seulement « sur la boucle » ; en Phone (chant de mémoire) : seulement l'enregistrement sans musique
+    el.btnRecLoop.hidden = recording || phoneRec;
+    el.btnRec.classList.toggle('btn-primary', phoneRec);
+    el.btnRec.classList.toggle('btn-secondary', !phoneRec);
     el.btnStop.hidden = !recording;
-    el.btnRec.textContent = hasClip ? '⏺ Réenregistrer' : '⏺ Enregistrer';
-    el.btnRecLoop.textContent = hasClip ? '🎼 Réenregistrer sur la boucle' : '🎼 Enregistrer sur la boucle';
+    GB.icons.set(el.btnRec, 'record', hasClip ? 'Réenregistrer' : 'Enregistrer ma voix');
+    GB.icons.set(el.btnRecLoop, 'loop', hasClip ? 'Réenregistrer sur la boucle' : 'Enregistrer sur la boucle');
     el.btnRec.disabled = locked;
     el.btnRecLoop.disabled = locked;
     el.btnPlay.disabled = !hasClip || recording;
@@ -161,6 +253,73 @@
     if (rec.active) rec.raf = requestAnimationFrame(animateLevel);
   }
 
+  /** Petit bip (compte à rebours) : fréquence en Hz, durée en ms. Silencieux si l'audio n'est pas encore débloqué. */
+  function beep(frequency, ms, volume) {
+    try {
+      const ctx = Tone.getContext().rawContext;
+      if (ctx.state !== 'running') return;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const now = ctx.currentTime;
+      osc.type = 'sine';
+      osc.frequency.value = frequency;
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(volume || 0.3, now + 0.012);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + ms / 1000);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + ms / 1000 + 0.03);
+    } catch (error) {
+      /* pas de bip : le visuel suffit */
+    }
+  }
+
+  /**
+   * Compte à rebours 3-2-1 : GRAND nombre au milieu de l'écran (posé sur la page, il ne disparaît jamais quand le panneau se redessine)
+   * + un bip à chaque nombre et un bip plus aigu au départ. S'arrête juste après le « 1 ».
+   */
+  function countdown() {
+    return new Promise((resolve) => {
+      let n = 3;
+      rec.counting = true;
+      const badge = create('div', 'voice-countdown');
+      badge.setAttribute('role', 'timer');
+      badge.setAttribute('aria-live', 'assertive');
+      const number = create('span', 'vc-number', String(n));
+      badge.append(number, create('small', 'vc-hint', rec.loopMode ? 'La boucle démarre après le 1' : 'Tu chantes après le 1'));
+      document.body.append(badge);
+      beep(660, 160);
+      setStatus('Prépare-toi… on commence après le 1.', 'info');
+      const timer = setInterval(() => {
+        n -= 1;
+        if (n >= 1 && rec.active) {
+          number.textContent = String(n);
+          number.style.animation = 'none';
+          void number.offsetWidth; // relance l'animation « pop »
+          number.style.animation = '';
+          beep(660, 160);
+          return;
+        }
+        clearInterval(timer);
+        rec.counting = false;
+        if (rec.active) {
+          beep(1100, 320, 0.35);
+          number.textContent = '🎤';
+          badge.classList.add('go');
+          setTimeout(() => badge.remove(), 450);
+        } else badge.remove();
+        resolve();
+      }, 1000);
+      rec.countdownTimer = timer;
+    });
+  }
+
+  /** Phone : on chante / on enregistre SANS musique (de mémoire) : la timeline défile quand même, avec le compte à rebours. */
+  function phoneRecordMode() {
+    return document.body.classList.contains('phone-active') && ['sing'].includes(document.body.getAttribute('data-phone-kind'));
+  }
+
   async function startRecording(loopMode) {
     const track = currentTrack();
     if (!track || track.locked || rec.active || voice.isRecording()) return;
@@ -169,24 +328,34 @@
     el.btnRecLoop.disabled = true;
     rec.trackId = track.id;
     rec.loopMode = loopMode;
+    rec.timed = loopMode || phoneRecordMode(); // avec compte à rebours et départ calé sur le zéro de la timeline
     rec.loopTrim = 0;
-    if (loopMode) audio.stop();
+    rec.zeroAt = 0;
+    if (rec.timed) audio.stop();
     try {
-      const limit = loopSeconds() + (loopMode ? 1 : 0);
+      const limit = loopSeconds() + (rec.timed ? 5 : 0);
       const started = await voice.start({ maxSeconds: limit, onAutoStop: () => finishRecording() });
       rec.active = true;
       rec.startedAt = started.startedAt;
-      if (loopMode) {
-        await audio.play();
+      rec.deviceKey = started.deviceKey || 'default';
+      live.levels = [];
+      startLive();
+      if (rec.timed) {
+        render(); // le bouton « Terminer » (annuler) est disponible dès le compte à rebours
+        await countdown(); // 3, 2, 1 : le micro écoute déjà, le départ vient juste après le « 1 »
+        if (!rec.active) return;
+        if (loopMode) await audio.play();
         // Le son de la boucle sort `lookAhead` secondes après l'appel : c'est lui, pas le clic, qui donne le temps zéro.
-        const audibleStart = performance.now() + Tone.getContext().lookAhead * 1000;
-        rec.loopTrim = Math.min(0.6, Math.max(0, (audibleStart - rec.startedAt) / 1000));
+        const audibleStart = performance.now() + (loopMode ? Tone.getContext().lookAhead * 1000 : 0);
+        rec.zeroAt = audibleStart;
+        // + le retard du micro (calibrage de l'accueil) : la voix enregistrée arrive plus tard que ce qui a été chanté
+        rec.loopTrim = Math.min(6, Math.max(0, (audibleStart - rec.startedAt) / 1000 + (GB.micprefs ? GB.micprefs.getLatencyMs(rec.deviceKey) / 1000 : 0)));
         clearTimeout(rec.autoStopTimer);
         rec.autoStopTimer = setTimeout(() => finishRecording(), (rec.loopTrim + loopSeconds()) * 1000 + 60);
       }
       rec.tickTimer = setInterval(() => {
         const seconds = (performance.now() - rec.startedAt) / 1000;
-        setStatus('● Enregistrement en cours… ' + seconds.toFixed(1).replace('.', ',') + ' s' + (loopMode ? ' (la boucle s\'arrête toute seule)' : ' · durée maximale ' + Math.round(loopSeconds()) + ' s'), 'recording');
+        setStatus('● Enregistrement en cours… ' + seconds.toFixed(1).replace('.', ',') + ' s' + (rec.timed ? ' (ça s\'arrête tout seul)' : ' · durée maximale ' + Math.round(loopSeconds()) + ' s'), 'recording');
       }, 100);
       animateLevel();
       render();
@@ -198,7 +367,7 @@
       if (error && error.code === 'cancelled') setStatus('', '');
       else {
         setStatus(error.message || 'Impossible d\'enregistrer.', 'error');
-        ui.showToast('Micro indisponible — lis le message sous le titre 🎤');
+        ui.showToast('Micro indisponible — lis le message sous le titre');
       }
       render();
     }
@@ -206,19 +375,21 @@
 
   async function finishRecording() {
     if (!rec.active) return;
+    if (rec.counting) { cancelRecording(); render(); return; } // « Terminer » pendant le compte à rebours = annuler
     const track = store.getTrack(rec.trackId);
     const loopMode = rec.loopMode;
+    const timed = rec.timed;
     const trim = rec.loopTrim;
     rec.active = false;
     stopTimers();
     setStatus('Traitement de l\'enregistrement…', 'info');
     render();
     try {
-      const clip = await voice.stop({ trimSeconds: loopMode ? trim : 0, maxLength: loopSeconds() });
+      const clip = await voice.stop({ trimSeconds: timed ? trim : 0, maxLength: loopSeconds() });
       if (loopMode) audio.stop();
       if (!track || !store.getTrack(track.id) || track.locked) return;
       const previous = track.clip;
-      if (previous && !loopMode) {
+      if (previous && !timed) {
         clip.start = previous.start; // on réenregistre « à la même place »
         clip.gainDb = previous.gainDb;
       } else if (previous) {
@@ -241,6 +412,9 @@
   }
 
   function cancelRecording() {
+    document.querySelectorAll('.voice-countdown').forEach((node) => node.remove());
+    clearInterval(rec.countdownTimer);
+    rec.counting = false;
     voice.cancel();
     rec.active = false;
     stopTimers();
@@ -301,11 +475,19 @@
   /* ------------------------------------------------------------------ */
 
   function bind() {
+    if ($('voice-calib-btn')) $('voice-calib-btn').addEventListener('click', () => GB.calibration && GB.calibration.open());
+    if (GB.micprefs) GB.micprefs.onChange(refreshCalibBanner);
     el.btnRec.addEventListener('click', () => startRecording(false));
     el.btnRecLoop.addEventListener('click', () => startRecording(true));
     el.btnStop.addEventListener('click', () => finishRecording());
     el.btnPlay.addEventListener('click', () => {
       const track = currentTrack();
+      if (track && track.clip) {
+        live.previewFrom = track.clip.start;
+        live.previewStart = performance.now();
+        live.previewUntil = live.previewStart + track.clip.duration * 1000;
+        startLive();
+      }
       if (track) audio.previewClip(track.id);
     });
     el.btnRedo.addEventListener('click', () => {
@@ -346,6 +528,7 @@
       setStatus('', '');
     },
     isRecording: () => rec.active,
+    beep,
   };
   bind();
 })((window.GB = window.GB || {}));
